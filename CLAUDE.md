@@ -1,0 +1,57 @@
+# DevDigest
+
+Local-first AI code review studio for GitHub PRs.
+
+## Stack
+
+Node >= 22, pnpm >= 10, Docker (Postgres only). No monorepo workspace —
+each package has its own package.json and lockfile.
+
+## Quick start
+
+```sh
+./scripts/dev.sh        # Postgres + API :3001 + web :3000 (migrates, seeds)
+```
+
+## Project map
+
+| Folder           | Package                    | What                                    | Port |
+|------------------|----------------------------|-----------------------------------------|------|
+| `client/`        | `@devdigest/web`           | Next.js 15 UI (the studio)              | 3000 |
+| `server/`        | `@devdigest/api`           | Fastify 5 API + Drizzle/Postgres        | 3001 |
+| `reviewer-core/` | `@devdigest/reviewer-core` | Pure review engine (diff → LLM → findings) | —  |
+| `e2e/`           | `@devdigest/e2e`           | Browser e2e (agent-browser, no Playwright) | —  |
+
+`@devdigest/shared` — Zod contracts vendored at `server/src/vendor/shared/`
+(symlinked into client). Not a separate package.
+
+## Non-default conventions
+
+- Cross-package imports via **tsconfig path aliases**, not npm publish
+- `reviewer-core` is consumed as TS source — never emits JS
+- Secrets go through `SecretsProvider` (`server/src/adapters/secrets/local.ts`),
+  never through `AppConfig` — stored in `~/.devdigest/secrets.json`
+- DI container: `server/src/platform/container.ts` — lazy singletons for all adapters
+- Test split: `*.it.test.ts` = DB-backed (testcontainers); everything else = hermetic
+
+## Gotchas
+
+- Migrations are NOT auto-applied on boot — run `cd server && pnpm db:migrate`
+- pgvector extension enabled by migration `0000` — must run against Dockerized DB
+- Grounding is mandatory: findings without valid diff line citations are dropped
+- `pnpm db:seed` is idempotent (safe to re-run)
+
+## Do-not-touch
+
+- `server/src/vendor/shared/` and `client/src/vendor/shared/` — shared contracts, edit in one place
+- `client/src/vendor/ui/` — vendored UI primitives
+- `server/clones/` — git checkouts of imported repos (git-ignored)
+- `server/src/db/migrations/` — generated migration files, never hand-edit
+
+## Read when
+
+- Read `README.md` when you need the architecture diagram or full package table
+- Read `TESTING.md` when adding or debugging tests across any package
+- Read `docs/agent-prompts/README.md` when working on agent system prompts
+- Read `<module>/README.md` when working inside that module for API maps, diagrams, and flow details
+- Read `<module>/INSIGHTS.md` when debugging unexpected behavior in that module
