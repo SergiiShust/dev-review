@@ -198,8 +198,12 @@ export function RunHistory({
             </div>
             <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 2, fontSize: 11, color: "var(--text-muted)", flexShrink: 0 }}>
               {r.ran_at && <span>{new Date(r.ran_at).toLocaleTimeString()}</span>}
-              {settled && r.tokens_in != null && (
-                <span>{formatTokens(r.tokens_in, r.tokens_out ?? 0)} · {formatCost(r.cost_usd)}</span>
+              {settled && (r.tokens_in != null || r.cost_usd != null) && (
+                <span>
+                  {r.tokens_in != null ? formatTokens(r.tokens_in, r.tokens_out ?? 0) : ""}
+                  {r.tokens_in != null && r.cost_usd != null ? " · " : ""}
+                  {r.cost_usd != null ? formatCost(r.cost_usd) : ""}
+                </span>
               )}
             </div>
             <button
