@@ -33,5 +33,5 @@ npm run e2e:hermetic              # isolated stack on alternate ports (recommend
 ## Read when
 
 - Read `README.md` when adding flows, debugging failures, or setting up the runner
-- Read `INSIGHTS.md` when debugging flaky or unexpected e2e failures
+- Read `INSIGHTS.md` at session start — review for relevant gotchas, patterns, and known issues
 - Read `docs/` for deep-dive documentation on e2e patterns

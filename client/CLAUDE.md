@@ -34,6 +34,6 @@ pnpm typecheck
 ## Read when
 
 - Read `README.md` when working on routes, UI architecture, or the API hook layer
-- Read `INSIGHTS.md` when debugging unexpected UI behavior or test failures
+- Read `INSIGHTS.md` at session start — review for relevant gotchas, patterns, and known issues
 - Read `docs/` for deep-dive documentation on specific client features
 - Read `specs/` for feature specifications and acceptance criteria

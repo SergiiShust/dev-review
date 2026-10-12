@@ -54,4 +54,14 @@ each package has its own package.json and lockfile.
 - Read `TESTING.md` when adding or debugging tests across any package
 - Read `docs/agent-prompts/README.md` when working on agent system prompts
 - Read `<module>/README.md` when working inside that module for API maps, diagrams, and flow details
-- Read `<module>/INSIGHTS.md` when debugging unexpected behavior in that module
+- Read `<module>/INSIGHTS.md` at session start when working inside a module — review for relevant gotchas and patterns
+
+## Engineering insights protocol
+
+On **session start**: read `INSIGHTS.md` for the package you will work in.
+Note the top 3 entries relevant to the current task.
+
+On **session end** (or after solving a non-trivial problem): re-read the
+relevant `INSIGHTS.md` first, then append new entries only if not already
+covered. Use the `engineering-insights` skill for format and quality rules.
+Skip trivial config/formatting-only sessions.

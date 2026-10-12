@@ -36,6 +36,6 @@ pnpm typecheck    # this IS the build — package never emits JS
 ## Read when
 
 - Read `README.md` when working on the review pipeline, grounding, or prompt assembly
-- Read `INSIGHTS.md` when debugging unexpected review results or grounding behavior
+- Read `INSIGHTS.md` at session start — review for relevant gotchas, patterns, and known issues
 - Read `docs/` for deep-dive documentation on engine internals
 - Read `specs/` for feature specifications and acceptance criteria

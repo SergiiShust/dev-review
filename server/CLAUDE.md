@@ -49,6 +49,6 @@ pnpm typecheck
 
 - Read `README.md` when working on API routes, DI container, or request flow
 - Read `src/modules/repo-intel/README.md` when working on codebase indexing
-- Read `INSIGHTS.md` when debugging unexpected server behavior
+- Read `INSIGHTS.md` at session start — review for relevant gotchas, patterns, and known issues
 - Read `docs/` for deep-dive documentation on specific server features
 - Read `specs/` for feature specifications and acceptance criteria
