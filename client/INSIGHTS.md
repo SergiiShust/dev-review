@@ -7,7 +7,12 @@ Format: `- **[YYYY-MM-DD]** description (file:line when applicable)`
 
 ## What Doesn't Work
 
+- **[2026-10-12]** Importing from a sibling Next.js dynamic route segment (e.g. `from "../../../[number]/_components/Foo/helpers"`) fails TypeScript resolution — the `[number]` bracket syntax in the path confuses the module resolver. Instead, either place shared helpers in a common ancestor directory (e.g. `pulls/helpers.ts`) or duplicate the function.
+
 ## Codebase Patterns
+
+- **[2026-10-12]** Shared contracts live in `server/src/vendor/shared/` and must be manually copied to `client/src/vendor/shared/` after changes. There's no automated sync — forgetting the copy causes client type errors against stale schemas.
+- **[2026-10-12]** PR list grid columns: `constants.ts` defines both `GRID` (CSS grid-template-columns) and `COLUMN_KEYS` (header labels). These must stay in sync — `GRID` defines the widths, `COLUMN_KEYS` drives the header row rendering via i18n keys under `list.columns.*`. Adding a column requires updating both, plus the i18n JSON, plus adding the cell in `PRRow.tsx`.
 
 ## Tool & Library Notes
 

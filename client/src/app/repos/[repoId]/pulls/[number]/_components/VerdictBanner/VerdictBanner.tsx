@@ -7,6 +7,7 @@ import { useTranslations } from "next-intl";
 import { Icon, Badge, CircularScore } from "@devdigest/ui";
 import type { Verdict } from "@devdigest/shared";
 import { VERDICT_META } from "./constants";
+import { formatCost, formatTokens } from "../RunTraceDrawer/helpers";
 import { s } from "./styles";
 
 export function VerdictBanner({
@@ -16,6 +17,9 @@ export function VerdictBanner({
   findingsCount,
   blockers,
   agentName,
+  costUsd,
+  tokensIn,
+  tokensOut,
 }: {
   verdict: Verdict;
   summary: string | null;
@@ -23,6 +27,9 @@ export function VerdictBanner({
   findingsCount: number;
   blockers: number;
   agentName?: string | null;
+  costUsd?: number | null;
+  tokensIn?: number | null;
+  tokensOut?: number | null;
 }) {
   const t = useTranslations("prReview");
   const m = VERDICT_META[verdict] ?? VERDICT_META.comment;
@@ -51,6 +58,13 @@ export function VerdictBanner({
         <div style={s.scoreCol}>
           <CircularScore score={score} size={52} stroke={5} />
           <span style={s.scoreLabel}>{t("verdict.prScore")}</span>
+          {(costUsd != null || tokensIn != null) && (
+            <span style={{ fontSize: 12, color: "var(--text-muted)", marginTop: 2 }}>
+              {costUsd != null ? `${formatCost(costUsd)}` : ""}
+              {costUsd != null && tokensIn != null ? "  " : ""}
+              {tokensIn != null ? formatTokens(tokensIn, tokensOut ?? 0) : ""}
+            </span>
+          )}
         </div>
       )}
     </div>
