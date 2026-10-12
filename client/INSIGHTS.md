@@ -8,6 +8,7 @@ Format: `- **[YYYY-MM-DD]** description (file:line when applicable)`
 ## What Doesn't Work
 
 - **[2026-10-12]** Importing from a sibling Next.js dynamic route segment (e.g. `from "../../../[number]/_components/Foo/helpers"`) fails TypeScript resolution — the `[number]` bracket syntax in the path confuses the module resolver. Instead, either place shared helpers in a common ancestor directory (e.g. `pulls/helpers.ts`) or duplicate the function.
+- **[2026-10-12]** Even relative imports that traverse *upward through* a dynamic segment (e.g. `from "../../../../helpers"` from inside `[number]/`) fail TS resolution. The only reliable cross-segment sharing pattern is the `@/` tsconfig alias (e.g. `@/lib/format`). For utilities needed by both the PR list (`pulls/`) and PR detail (`pulls/[number]/`), put them in `client/src/lib/` and import via `@/lib/…`. Re-export from closer helpers files to keep existing consumers stable.
 
 ## Codebase Patterns
 
@@ -19,5 +20,7 @@ Format: `- **[YYYY-MM-DD]** description (file:line when applicable)`
 ## Recurring Errors & Fixes
 
 ## Session Notes
+
+- **[2026-10-12]** When adding a field that's shown in both the timeline (RunHistory) and trace drawer (TraceBody), guard rendering on the field's own nullability — not on a sibling field. `cost_usd` is independent of `tokens_in`; guarding cost display on `r.tokens_in != null` silently hides cost when token data is missing but cost exists. Each data point should have its own null check (client/src/app/repos/[repoId]/pulls/[number]/_components/RunHistory/RunHistory.tsx:201).
 
 ## Open Questions
