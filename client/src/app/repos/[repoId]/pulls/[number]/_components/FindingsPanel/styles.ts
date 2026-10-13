@@ -23,5 +23,18 @@ export const s = {
     fontSize: 13,
     color: "var(--text-secondary)",
   } satisfies CSSProperties,
+  pillGroup: {
+    display: "flex",
+    alignItems: "center",
+    gap: 6,
+  } satisfies CSSProperties,
+  pill: (active: boolean): CSSProperties => ({
+    cursor: "pointer",
+    borderRadius: 5,
+    outline: active ? "2px solid var(--accent)" : "2px solid transparent",
+    outlineOffset: 1,
+    opacity: active ? 1 : 0.75,
+    transition: "outline .15s, opacity .15s",
+  }),
   list: { display: "flex", flexDirection: "column", gap: 12 } satisfies CSSProperties,
 } as const;
