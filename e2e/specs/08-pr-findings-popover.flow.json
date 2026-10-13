@@ -1,0 +1,13 @@
+{
+  "name": "PR-list findings badge hover reveals a scoped findings popover",
+  "description": "On the seeded PR list, hovering PR #482's Findings badge opens the FindingsPopover. The popover is scoped to the PR's latest review (not every review aggregated), so its header count must equal the badge: seed gives PR #482 one review with 2 findings (1 CRITICAL + 1 WARNING), so the header reads '2 FINDINGS' and the CRITICAL finding ('Hardcoded Stripe secret key in commit', sorted first) is listed. This is the real-browser guard for the 'badge says 4, popover says 11' consistency bug — the latest-vs-aggregate distinction itself is pinned by the server integration test (reviews.badge.it.test.ts), since seeded data has only one review per PR. Read-only seeded data (no model call). Assumes a freshly-seeded DB where acme/payments-api (PR #482) is the first repo — guaranteed by e2e-web.yml; run locally via the hermetic stack (see e2e/README.md).",
+  "steps": [
+    { "cmd": ["open", "{BASE}/"], "label": "load the app root" },
+    { "cmd": ["wait", "--url", "/pulls"], "label": "land on the PR list" },
+    { "cmd": ["wait", "--load", "networkidle"], "label": "PR list data settles" },
+    { "cmd": ["wait", "--text", "Add rate limiting to public API endpoints"], "label": "seeded PR #482 row is visible" },
+    { "cmd": ["find", "testid", "pr-findings-badge", "hover"], "label": "hover the PR row's findings badge" },
+    { "cmd": ["wait", "--text", "2 FINDINGS"], "label": "popover header shows the latest-review count (matches the badge)" },
+    { "cmd": ["wait", "--text", "Hardcoded Stripe secret key in commit"], "label": "the CRITICAL finding is listed in the popover" }
+  ]
+}

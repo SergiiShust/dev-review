@@ -4,17 +4,21 @@
  * a settled run is colored/labelled by its denormalized blocker/finding counts,
  * and shows the review score ring.
  */
-import { describe, it, expect, afterEach, vi } from "vitest";
-import { render, screen, cleanup } from "@testing-library/react";
+import { describe, it, expect, afterEach, beforeEach, vi } from "vitest";
+import { render, screen, cleanup, fireEvent, act } from "@testing-library/react";
 import { NextIntlClientProvider } from "next-intl";
-import type { RunSummary } from "@devdigest/shared";
+import type { RunSummary, ReviewRecord } from "@devdigest/shared";
 import messages from "../../../../../../../../messages/en/prReview.json";
 import { RunHistory } from "./RunHistory";
 
+let mockReviews: ReviewRecord[] | undefined;
 vi.mock("@/lib/hooks/reviews", () => ({
-  usePrReviews: () => ({ data: undefined }),
+  usePrReviews: () => ({ data: mockReviews }),
 }));
 
+beforeEach(() => {
+  mockReviews = undefined;
+});
 afterEach(cleanup);
 
 function run(o: Partial<RunSummary>): RunSummary {
@@ -126,5 +130,78 @@ describe("RunHistory — cost display", () => {
     renderRuns([run({ status: "running", cost_usd: null, tokens_in: null, tokens_out: null })]);
     expect(screen.queryByText(/\$/)).not.toBeInTheDocument();
     expect(screen.queryByText(/k→/)).not.toBeInTheDocument();
+  });
+});
+
+describe("RunHistory — findings popover scopes to the hovered run", () => {
+  function finding(id: string, reviewId: string): ReviewRecord["findings"][number] {
+    return {
+      id,
+      review_id: reviewId,
+      severity: "WARNING",
+      category: "bug",
+      title: `Finding ${id}`,
+      file: "src/foo.ts",
+      start_line: 1,
+      end_line: 1,
+      rationale: "because",
+      confidence: 0.8,
+      accepted_at: null,
+      dismissed_at: null,
+    };
+  }
+  function review(id: string, runId: string, findingIds: string[]): ReviewRecord {
+    return {
+      id,
+      pr_id: "pr-1",
+      agent_id: "a1",
+      run_id: runId,
+      kind: "review",
+      verdict: null,
+      summary: null,
+      score: 70,
+      model: "m",
+      created_at: "2026-06-11T18:44:34.000Z",
+      findings: findingIds.map((f) => finding(f, id)),
+    };
+  }
+
+  function renderWithReviews(runs: RunSummary[]) {
+    return render(
+      <NextIntlClientProvider locale="en" messages={{ prReview: messages }}>
+        <RunHistory runs={runs} prId="pr-1" onOpenTrace={() => {}} />
+      </NextIntlClientProvider>,
+    );
+  }
+
+  it("shows only the hovered run's findings + count, not the PR-wide total", () => {
+    vi.useFakeTimers();
+    // PR has two runs: run-1 produced 1 finding, run-2 produced 3. The PR-wide
+    // total is 4, but hovering run-1's badges must read "1 FINDING".
+    mockReviews = [
+      review("rev-1", "run-1", ["f1"]),
+      review("rev-2", "run-2", ["f2", "f3", "f4"]),
+    ];
+    const { container } = renderWithReviews([
+      run({
+        run_id: "run-1",
+        status: "done",
+        severity_counts: { CRITICAL: 0, WARNING: 1, SUGGESTION: 0 },
+        score: 70,
+      }),
+    ]);
+
+    // The severity-badge group (span with gap:4) is the popover anchor that
+    // carries the mouse handlers. mouseenter doesn't bubble, so target it exactly.
+    const anchor = container.querySelector('span[style*="gap: 4px"]') as HTMLElement;
+    expect(anchor).toBeTruthy();
+    fireEvent.mouseEnter(anchor);
+    act(() => void vi.advanceTimersByTime(250)); // clear the 200ms show delay
+
+    expect(screen.getByText(/^1 FINDING$/)).toBeInTheDocument();
+    expect(screen.queryByText(/4 FINDING/)).not.toBeInTheDocument();
+    expect(screen.getByText("Finding f1")).toBeInTheDocument();
+    expect(screen.queryByText("Finding f2")).not.toBeInTheDocument();
+    vi.useRealTimers();
   });
 });

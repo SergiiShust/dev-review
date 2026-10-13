@@ -72,6 +72,7 @@ export function PRRow({ pr, repoId }: { pr: PrMeta; repoId: string }) {
         ref={findingsRef}
         onMouseEnter={showPopover}
         onMouseLeave={hidePopover}
+        data-testid="pr-findings-badge"
       >
         <FindingsCell counts={pr.findings_counts} />
         {pr.id && <FindingsPopover prId={pr.id} visible={popover} anchorRef={findingsRef} />}

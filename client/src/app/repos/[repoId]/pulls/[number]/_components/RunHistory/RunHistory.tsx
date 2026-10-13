@@ -92,10 +92,12 @@ function SeverityCounts({
   counts,
   fallback,
   prId,
+  runId,
 }: {
   counts: { CRITICAL: number; WARNING: number; SUGGESTION: number };
   fallback: string;
   prId?: string | null;
+  runId: string;
 }) {
   const [popover, setPopover] = React.useState(false);
   const timerRef = React.useRef<ReturnType<typeof setTimeout>>(null);
@@ -117,7 +119,7 @@ function SeverityCounts({
       {SEVS.map(
         (sev) => counts[sev] > 0 && <SeverityBadge key={sev} severity={sev} count={counts[sev]} compact />,
       )}
-      {prId && <FindingsPopover prId={prId} visible={popover} anchorRef={anchorRef} />}
+      {prId && <FindingsPopover prId={prId} runId={runId} visible={popover} anchorRef={anchorRef} />}
     </span>
   );
 }
@@ -232,7 +234,7 @@ export function RunHistory({
               {settled && (
                 <div style={{ fontSize: 12, color: "var(--text-muted)", display: "flex", alignItems: "center", gap: 4 }}>
                   {r.severity_counts ? (
-                    <SeverityCounts counts={r.severity_counts} fallback={t("runStatus.findings", { count: 0 })} prId={prId} />
+                    <SeverityCounts counts={r.severity_counts} fallback={t("runStatus.findings", { count: 0 })} prId={prId} runId={r.run_id} />
                   ) : (
                     <>
                       {t("runStatus.findings", { count: r.findings_count ?? 0 })}
