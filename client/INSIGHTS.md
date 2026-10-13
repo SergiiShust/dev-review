@@ -5,6 +5,8 @@ Format: `- **[YYYY-MM-DD]** description (file:line when applicable)`
 
 ## What Works
 
+- **[2026-10-13]** `createPortal(document.body)` with `position: fixed` + `getBoundingClientRect()` is the reliable pattern for popovers inside `overflow: hidden` containers (like `tableCard` in the PR list). Using `position: absolute` gets clipped by the parent's `overflow: hidden` + `borderRadius`. Compute `top`/`left` from the anchor ref in a `useEffect` keyed on visibility (client/src/app/repos/[repoId]/pulls/_components/FindingsPopover/FindingsPopover.tsx).
+
 ## What Doesn't Work
 
 - **[2026-10-12]** Importing from a sibling Next.js dynamic route segment (e.g. `from "../../../[number]/_components/Foo/helpers"`) fails TypeScript resolution — the `[number]` bracket syntax in the path confuses the module resolver. Instead, either place shared helpers in a common ancestor directory (e.g. `pulls/helpers.ts`) or duplicate the function.
@@ -30,5 +32,7 @@ Format: `- **[YYYY-MM-DD]** description (file:line when applicable)`
 - **[2026-10-12]** When adding a field that's shown in both the timeline (RunHistory) and trace drawer (TraceBody), guard rendering on the field's own nullability — not on a sibling field. `cost_usd` is independent of `tokens_in`; guarding cost display on `r.tokens_in != null` silently hides cost when token data is missing but cost exists. Each data point should have its own null check (client/src/app/repos/[repoId]/pulls/[number]/_components/RunHistory/RunHistory.tsx:201).
 
 - **[2026-10-12]** `@testing-library/user-event` is NOT installed in the client package — only `@testing-library/react` and `@testing-library/jest-dom` are available. Use `fireEvent` from `@testing-library/react` for click/keyboard tests. Attempting to import `user-event` causes a Vite resolve error at test time.
+
+- **[2026-10-13]** Popover content with long file paths (e.g. `client/src/app/repos/[repoId]/pulls/_components/FindingsPopover/...`) overflows the popover border if the meta row lacks `overflow: hidden` + `textOverflow: ellipsis`. The file path span needs `flex: 1`, `minWidth: 0`, and truncation styles, while category tag and confidence % must be `flexShrink: 0` to stay visible (client/src/app/repos/[repoId]/pulls/_components/FindingsPopover/FindingsPopover.tsx:97-99).
 
 ## Open Questions
