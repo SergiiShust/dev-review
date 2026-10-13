@@ -7,6 +7,14 @@ Local-first AI code review studio for GitHub PRs.
 Node >= 22, pnpm >= 10, Docker (Postgres only). No monorepo workspace —
 each package has its own package.json and lockfile.
 
+## GitHub
+
+All GitHub operations (PRs, issues, `gh` commands) target the fork
+**`SergiiShust/dev-review`** (remote `origin`). Never touch the `upstream`
+remote `ai-agentic-engineering-neo/dev-digest`. Both have their own PR #1, and
+bare `gh pr view 1` resolves to upstream — always pass
+`--repo SergiiShust/dev-review`.
+
 ## Quick start
 
 ```sh
