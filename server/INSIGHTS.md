@@ -20,4 +20,6 @@ Format: `- **[YYYY-MM-DD]** description (file:line when applicable)`
 
 ## Session Notes
 
+- **[2026-10-12]** `MockLLMProvider` returns `costUsd: 0.001` per call (server/src/adapters/mocks.ts:85,101). Integration tests can assert `costUsd` is a number and `> 0` — but don't assert exact values since map-reduce strategy may call the LLM multiple times, making the total depend on the diff size and strategy selection.
+
 ## Open Questions

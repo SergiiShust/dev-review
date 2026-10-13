@@ -14,6 +14,7 @@ Format: `- **[YYYY-MM-DD]** description (file:line when applicable)`
 
 - **[2026-10-12]** Shared contracts live in `server/src/vendor/shared/` and must be manually copied to `client/src/vendor/shared/` after changes. There's no automated sync — forgetting the copy causes client type errors against stale schemas.
 - **[2026-10-12]** PR list grid columns: `constants.ts` defines both `GRID` (CSS grid-template-columns) and `COLUMN_KEYS` (header labels). These must stay in sync — `GRID` defines the widths, `COLUMN_KEYS` drives the header row rendering via i18n keys under `list.columns.*`. Adding a column requires updating both, plus the i18n JSON, plus adding the cell in `PRRow.tsx`.
+- **[2026-10-12]** PRRow renders two "—" dashes (score cell when unreviewed + cost cell when null via `formatCost`). Tests using `screen.getByText("—")` will fail with "multiple elements found". Assert with `queryByText(/\$/)` (absence of dollar sign) or `getAllByText` instead.
 
 ## Tool & Library Notes
 
