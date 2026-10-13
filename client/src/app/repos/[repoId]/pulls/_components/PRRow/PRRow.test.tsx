@@ -9,10 +9,6 @@ vi.mock("next/navigation", () => ({
   useRouter: () => ({ push: vi.fn() }),
 }));
 
-vi.mock("@/lib/hooks/reviews", () => ({
-  usePrReviews: () => ({ data: undefined, isLoading: false }),
-}));
-
 afterEach(cleanup);
 
 function pr(o: Partial<PrMeta> = {}): PrMeta {
@@ -32,7 +28,6 @@ function pr(o: Partial<PrMeta> = {}): PrMeta {
     updated_at: "2026-06-10T10:00:00Z",
     score: null,
     cost_usd: null,
-    findings_counts: null,
     ...o,
   };
 }
@@ -54,21 +49,5 @@ describe("PRRow — cost column", () => {
   it("renders dash when cost is null", () => {
     renderRow(pr({ cost_usd: null }));
     expect(screen.queryByText(/\$/)).not.toBeInTheDocument();
-  });
-});
-
-describe("PRRow — findings column", () => {
-  it("renders dash when findings_counts is null", () => {
-    renderRow(pr({ findings_counts: null }));
-    // Multiple dashes on the row (score, findings, cost) — at least one for findings
-    const dashes = screen.getAllByText("—");
-    expect(dashes.length).toBeGreaterThanOrEqual(1);
-  });
-
-  it("renders severity badges when findings_counts has non-zero values", () => {
-    renderRow(pr({ findings_counts: { CRITICAL: 2, WARNING: 1, SUGGESTION: 0 } }));
-    // SeverityBadge renders the count as text content
-    expect(screen.getByText("2")).toBeInTheDocument();
-    expect(screen.getByText("1")).toBeInTheDocument();
   });
 });

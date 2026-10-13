@@ -113,7 +113,8 @@ export default async function pullsRoutes(appBase: FastifyInstance) {
 
     // Latest-review SCORE per PR for the list's score ring. Computed on read
     // from reviews (no FK denorm); the list is small, so one IN-query + JS
-    // grouping is cheap.
+    // grouping is cheap. (The per-severity FINDINGS breakdown is intentionally
+    // not surfaced on the list — findings live on the PR detail page.)
     const prIds = rows.map((r) => r.id);
     const latestReviewByPr = new Map<string, { score: number | null }>();
     if (prIds.length > 0) {
@@ -138,43 +139,6 @@ export default async function pullsRoutes(appBase: FastifyInstance) {
       for (const rr of runRows) {
         if (rr.prId != null && rr.costUsd != null) {
           costByPr.set(rr.prId, (costByPr.get(rr.prId) ?? 0) + rr.costUsd);
-        }
-      }
-    }
-
-    // Severity breakdown per PR: count findings by severity for the latest review.
-    const findingsByPr = new Map<string, { CRITICAL: number; WARNING: number; SUGGESTION: number }>();
-    if (prIds.length > 0) {
-      // Collect latest review id per PR from the already-fetched latestReviewByPr map.
-      // We need the actual review IDs, so re-query reviews to get them.
-      const latestReviewRows = await container.db
-        .select({ id: t.reviews.id, prId: t.reviews.prId })
-        .from(t.reviews)
-        .where(and(inArray(t.reviews.prId, prIds), eq(t.reviews.kind, 'review')))
-        .orderBy(desc(t.reviews.createdAt));
-      const latestReviewIdByPr = new Map<string, string>();
-      for (const rv of latestReviewRows) {
-        if (!latestReviewIdByPr.has(rv.prId)) latestReviewIdByPr.set(rv.prId, rv.id);
-      }
-      const reviewIds = [...latestReviewIdByPr.values()];
-      if (reviewIds.length > 0) {
-        const findingRows = await container.db
-          .select({ reviewId: t.findings.reviewId, severity: t.findings.severity })
-          .from(t.findings)
-          .where(inArray(t.findings.reviewId, reviewIds));
-        // Build a reviewId → prId reverse map for grouping.
-        const reviewToPr = new Map<string, string>();
-        for (const [prId, revId] of latestReviewIdByPr) reviewToPr.set(revId, prId);
-        for (const f of findingRows) {
-          const prId = reviewToPr.get(f.reviewId);
-          if (!prId) continue;
-          let counts = findingsByPr.get(prId);
-          if (!counts) {
-            counts = { CRITICAL: 0, WARNING: 0, SUGGESTION: 0 };
-            findingsByPr.set(prId, counts);
-          }
-          const sev = f.severity as keyof typeof counts;
-          if (sev in counts) counts[sev]++;
         }
       }
     }
@@ -204,7 +168,6 @@ export default async function pullsRoutes(appBase: FastifyInstance) {
         updated_at: r.updatedAt?.toISOString() ?? null,
         score: review ? review.score : null,
         cost_usd: costByPr.get(r.id) ?? null,
-        findings_counts: findingsByPr.get(r.id) ?? null,
       };
     });
   });

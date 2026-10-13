@@ -8,15 +8,12 @@ import { Icon, Avatar, Badge, CircularScore } from "@devdigest/ui";
 import type { PrMeta } from "@/lib/types";
 import { SIZE_COLOR, STATUS_META } from "../../constants";
 import { relativeTime, sizeOf, formatCost } from "../../helpers";
-import { FindingsCell } from "../FindingsCell/FindingsCell";
-import { FindingsPopover } from "../FindingsPopover/FindingsPopover";
 import { s } from "../../styles";
 
 export function PRRow({ pr, repoId }: { pr: PrMeta; repoId: string }) {
   const t = useTranslations("prReview");
   const router = useRouter();
   const [h, setH] = React.useState(false);
-  const [showPopover, setShowPopover] = React.useState(false);
   const st = STATUS_META[pr.status] ?? STATUS_META.needs_review!;
   const { size, lines } = sizeOf(pr);
   const reviewed = pr.score != null; // null score ⇒ PR has never been reviewed
@@ -55,14 +52,6 @@ export function PRRow({ pr, repoId }: { pr: PrMeta; repoId: string }) {
         ) : (
           <span style={s.muted}>—</span>
         )}
-      </div>
-      <div
-        style={{ position: "relative" }}
-        onMouseEnter={() => setShowPopover(true)}
-        onMouseLeave={() => setShowPopover(false)}
-      >
-        <FindingsCell counts={pr.findings_counts} />
-        {pr.id && <FindingsPopover prId={pr.id} visible={showPopover} />}
       </div>
       <div>
         <Badge dot color={st.c} bg="transparent">
