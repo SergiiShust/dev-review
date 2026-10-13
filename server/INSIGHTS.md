@@ -20,6 +20,8 @@ Format: `- **[YYYY-MM-DD]** description (file:line when applicable)`
 
 ## Session Notes
 
+- **[2026-10-12]** The pulls list route (`GET /repos/:id/pulls`) already queries `reviews` for latest score. Adding findings counts requires a second query for review IDs (the score query doesn't select `id`), then a third query on `findings` grouped by severity. The `latestReviewByPr` map only stores `{ score }`, so you can't reuse it to get review IDs — you must re-query `reviews` to get the ID for the latest review per PR (server/src/modules/pulls/routes.ts:148-160).
+
 - **[2026-10-12]** `MockLLMProvider` returns `costUsd: 0.001` per call (server/src/adapters/mocks.ts:85,101). Integration tests can assert `costUsd` is a number and `> 0` — but don't assert exact values since map-reduce strategy may call the LLM multiple times, making the total depend on the diff size and strategy selection.
 
 ## Open Questions
