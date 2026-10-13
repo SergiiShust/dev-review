@@ -2,9 +2,10 @@
 
 import React from "react";
 import { useTranslations } from "next-intl";
-import { Badge, Icon, CircularScore, type IconName } from "@devdigest/ui";
+import { Badge, Icon, CircularScore, SeverityBadge, type IconName } from "@devdigest/ui";
 import type { RunSummary, PrCommit } from "@devdigest/shared";
 import { formatTokens, formatCost } from "../RunTraceDrawer/helpers";
+import { FindingsPopover } from "../../../_components/FindingsPopover";
 
 /**
  * PR timeline — every agent run interleaved with the PR's commits, newest-first
@@ -85,15 +86,54 @@ function tsOf(s: string | null | undefined): number {
   return Number.isNaN(n) ? 0 : n;
 }
 
+const SEVS = ["CRITICAL", "WARNING", "SUGGESTION"] as const;
+
+function SeverityCounts({
+  counts,
+  fallback,
+  prId,
+}: {
+  counts: { CRITICAL: number; WARNING: number; SUGGESTION: number };
+  fallback: string;
+  prId?: string | null;
+}) {
+  const [popover, setPopover] = React.useState(false);
+  const timerRef = React.useRef<ReturnType<typeof setTimeout>>(null);
+  const anchorRef = React.useRef<HTMLSpanElement>(null);
+
+  const show = () => {
+    if (timerRef.current) clearTimeout(timerRef.current);
+    timerRef.current = setTimeout(() => setPopover(true), 200);
+  };
+  const hide = () => {
+    if (timerRef.current) clearTimeout(timerRef.current);
+    timerRef.current = setTimeout(() => setPopover(false), 150);
+  };
+
+  const hasAny = SEVS.some((s) => counts[s] > 0);
+  if (!hasAny) return <span>{fallback}</span>;
+  return (
+    <span ref={anchorRef} onMouseEnter={show} onMouseLeave={hide} style={{ display: "inline-flex", gap: 4, alignItems: "center" }}>
+      {SEVS.map(
+        (sev) => counts[sev] > 0 && <SeverityBadge key={sev} severity={sev} count={counts[sev]} compact />,
+      )}
+      {prId && <FindingsPopover prId={prId} visible={popover} anchorRef={anchorRef} />}
+    </span>
+  );
+}
+
 export function RunHistory({
   runs,
   commits = [],
+  prId,
   onOpenTrace,
   onGoToReview,
   onDelete,
 }: {
   runs: RunSummary[];
   commits?: PrCommit[];
+  /** PR ID for lazy-loading findings in the popover. */
+  prId?: string | null;
   /** Open the trace + log drawer for a run (the logs icon). */
   onOpenTrace: (runId: string) => void;
   /** Jump to this run's inline review accordion below (clicking the agent name). */
@@ -190,9 +230,15 @@ export function RunHistory({
                 </div>
               )}
               {settled && (
-                <div style={{ fontSize: 12, color: "var(--text-muted)" }}>
-                  {t("runStatus.findings", { count: r.findings_count ?? 0 })}
-                  {(r.blockers ?? 0) > 0 ? t("runStatus.blockers", { count: r.blockers ?? 0 }) : ""}
+                <div style={{ fontSize: 12, color: "var(--text-muted)", display: "flex", alignItems: "center", gap: 4 }}>
+                  {r.severity_counts ? (
+                    <SeverityCounts counts={r.severity_counts} fallback={t("runStatus.findings", { count: 0 })} prId={prId} />
+                  ) : (
+                    <>
+                      {t("runStatus.findings", { count: r.findings_count ?? 0 })}
+                      {(r.blockers ?? 0) > 0 ? t("runStatus.blockers", { count: r.blockers ?? 0 }) : ""}
+                    </>
+                  )}
                 </div>
               )}
             </div>

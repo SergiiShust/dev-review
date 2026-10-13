@@ -9,14 +9,29 @@ import type { PrMeta } from "@/lib/types";
 import { SIZE_COLOR, STATUS_META } from "../../constants";
 import { relativeTime, sizeOf, formatCost } from "../../helpers";
 import { s } from "../../styles";
+import { FindingsCell } from "../FindingsCell";
+import { FindingsPopover } from "../FindingsPopover";
 
 export function PRRow({ pr, repoId }: { pr: PrMeta; repoId: string }) {
   const t = useTranslations("prReview");
   const router = useRouter();
   const [h, setH] = React.useState(false);
+  const [popover, setPopover] = React.useState(false);
+  const popoverTimer = React.useRef<ReturnType<typeof setTimeout>>(null);
+  const findingsRef = React.useRef<HTMLDivElement>(null);
   const st = STATUS_META[pr.status] ?? STATUS_META.needs_review!;
   const { size, lines } = sizeOf(pr);
   const reviewed = pr.score != null; // null score ⇒ PR has never been reviewed
+
+  const showPopover = () => {
+    if (popoverTimer.current) clearTimeout(popoverTimer.current);
+    popoverTimer.current = setTimeout(() => setPopover(true), 200);
+  };
+  const hidePopover = () => {
+    if (popoverTimer.current) clearTimeout(popoverTimer.current);
+    popoverTimer.current = setTimeout(() => setPopover(false), 150);
+  };
+
   return (
     <div
       onMouseEnter={() => setH(true)}
@@ -52,6 +67,14 @@ export function PRRow({ pr, repoId }: { pr: PrMeta; repoId: string }) {
         ) : (
           <span style={s.muted}>—</span>
         )}
+      </div>
+      <div
+        ref={findingsRef}
+        onMouseEnter={showPopover}
+        onMouseLeave={hidePopover}
+      >
+        <FindingsCell counts={pr.findings_counts} />
+        {pr.id && <FindingsPopover prId={pr.id} visible={popover} anchorRef={findingsRef} />}
       </div>
       <div>
         <Badge dot color={st.c} bg="transparent">

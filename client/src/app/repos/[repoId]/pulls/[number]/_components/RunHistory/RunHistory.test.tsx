@@ -4,12 +4,16 @@
  * a settled run is colored/labelled by its denormalized blocker/finding counts,
  * and shows the review score ring.
  */
-import { describe, it, expect, afterEach } from "vitest";
+import { describe, it, expect, afterEach, vi } from "vitest";
 import { render, screen, cleanup } from "@testing-library/react";
 import { NextIntlClientProvider } from "next-intl";
 import type { RunSummary } from "@devdigest/shared";
 import messages from "../../../../../../../../messages/en/prReview.json";
 import { RunHistory } from "./RunHistory";
+
+vi.mock("@/lib/hooks/reviews", () => ({
+  usePrReviews: () => ({ data: undefined }),
+}));
 
 afterEach(cleanup);
 
@@ -72,6 +76,30 @@ describe("RunHistory — outcome badge", () => {
   it("a running run reads 'running'", () => {
     renderRuns([run({ status: "running", score: null, blockers: null })]);
     expect(screen.getByText("running")).toBeInTheDocument();
+  });
+});
+
+describe("RunHistory — severity badges", () => {
+  it("renders severity badges when severity_counts present on a settled run", () => {
+    renderRuns([
+      run({
+        status: "done",
+        findings_count: 4,
+        severity_counts: { CRITICAL: 1, WARNING: 3, SUGGESTION: 0 },
+        score: 60,
+      }),
+    ]);
+    // SeverityBadge renders count inside a .tnum span; "3" is unique to WARNING
+    expect(screen.getByText("3", { selector: ".tnum" })).toBeInTheDocument();
+    // Should NOT fall back to text findings count
+    expect(screen.queryByText(/4 finding/)).not.toBeInTheDocument();
+  });
+
+  it("falls back to text findings count when severity_counts is null", () => {
+    renderRuns([
+      run({ status: "done", findings_count: 3, severity_counts: null, score: 72 }),
+    ]);
+    expect(screen.getByText(/3 finding/)).toBeInTheDocument();
   });
 });
 

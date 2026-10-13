@@ -9,6 +9,10 @@ vi.mock("next/navigation", () => ({
   useRouter: () => ({ push: vi.fn() }),
 }));
 
+vi.mock("@/lib/hooks/reviews", () => ({
+  usePrReviews: () => ({ data: undefined }),
+}));
+
 afterEach(cleanup);
 
 function pr(o: Partial<PrMeta> = {}): PrMeta {
@@ -49,5 +53,19 @@ describe("PRRow — cost column", () => {
   it("renders dash when cost is null", () => {
     renderRow(pr({ cost_usd: null }));
     expect(screen.queryByText(/\$/)).not.toBeInTheDocument();
+  });
+});
+
+describe("PRRow — findings column", () => {
+  it("renders severity badges when findings_counts present", () => {
+    renderRow(pr({ findings_counts: { CRITICAL: 2, WARNING: 1, SUGGESTION: 0 } }));
+    expect(screen.getByText("2")).toBeInTheDocument();
+    expect(screen.getByText("1")).toBeInTheDocument();
+  });
+
+  it("renders dash when findings_counts is null", () => {
+    renderRow(pr({ findings_counts: null, score: null, cost_usd: null }));
+    // score + findings + cost all null → multiple dashes
+    expect(screen.getAllByText("—").length).toBeGreaterThanOrEqual(1);
   });
 });

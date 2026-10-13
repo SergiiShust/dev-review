@@ -1,4 +1,4 @@
-import { and, desc, eq } from 'drizzle-orm';
+import { and, desc, eq, inArray } from 'drizzle-orm';
 import type { Db } from '../../../db/client.js';
 import * as t from '../../../db/schema.js';
 import type { RunSummary, RunTrace } from '@devdigest/shared';
@@ -48,6 +48,39 @@ export async function listRunsForPull(
     .leftJoin(t.agents, eq(t.agents.id, t.agentRuns.agentId))
     .where(and(eq(t.agentRuns.workspaceId, workspaceId), eq(t.agentRuns.prId, prId)))
     .orderBy(desc(t.agentRuns.ranAt));
+  // Per-severity finding counts for done runs (via reviews → findings).
+  const doneRunIds = rows.filter(({ run }) => run.status === 'done').map(({ run }) => run.id);
+  const sevByRun = new Map<string, { CRITICAL: number; WARNING: number; SUGGESTION: number }>();
+  if (doneRunIds.length > 0) {
+    const reviewRows = await db
+      .select({ runId: t.reviews.runId, id: t.reviews.id })
+      .from(t.reviews)
+      .where(inArray(t.reviews.runId, doneRunIds));
+    const reviewIds = reviewRows.map((r) => r.id);
+    if (reviewIds.length > 0) {
+      const findingRows = await db
+        .select({ reviewId: t.findings.reviewId, severity: t.findings.severity })
+        .from(t.findings)
+        .where(inArray(t.findings.reviewId, reviewIds));
+      const reviewToRun = new Map<string, string>();
+      for (const r of reviewRows) {
+        if (r.runId) reviewToRun.set(r.id, r.runId);
+      }
+      for (const f of findingRows) {
+        const runId = reviewToRun.get(f.reviewId);
+        if (!runId) continue;
+        let counts = sevByRun.get(runId);
+        if (!counts) {
+          counts = { CRITICAL: 0, WARNING: 0, SUGGESTION: 0 };
+          sevByRun.set(runId, counts);
+        }
+        if (f.severity === 'CRITICAL' || f.severity === 'WARNING' || f.severity === 'SUGGESTION') {
+          counts[f.severity]++;
+        }
+      }
+    }
+  }
+
   return rows.map(({ run, agentName }) => ({
     run_id: run.id,
     agent_id: run.agentId,
@@ -65,6 +98,7 @@ export async function listRunsForPull(
     score: run.score,
     blockers: run.blockers,
     cost_usd: run.costUsd ?? null,
+    severity_counts: sevByRun.get(run.id) ?? null,
   }));
 }
 
