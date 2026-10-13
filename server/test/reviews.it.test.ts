@@ -209,6 +209,10 @@ d('A2 reviews + agents (Testcontainers pg)', () => {
     expect(run!.findingsCount).toBe(1);
     expect(run!.grounding).toBe('1/2 passed');
 
+    // cost persisted from MockLLM (costUsd: 0.001 per call)
+    expect(run!.costUsd).toBeTypeOf('number');
+    expect(trace.stats.cost_usd).toBeTypeOf('number');
+
     await app.close();
   });
 
@@ -286,6 +290,28 @@ d('A2 reviews + agents (Testcontainers pg)', () => {
     // The replay buffer should contain our log lines as SSE `data:` frames.
     expect(sse.payload).toContain('Starting review');
     expect(sse.payload).toContain('Citation grounding');
+    await app.close();
+  });
+
+  it('pulls list returns aggregated cost_usd per PR', async () => {
+    const app = await appWith(REVIEW_FIXTURE);
+    const { repo, pr } = await setupRepoAndPr(pg.handle.db, workspaceId);
+    const agent = (
+      await app.inject({
+        method: 'POST',
+        url: '/agents',
+        payload: { name: 'CostAgent', provider: 'openai', model: 'gpt-4.1', system_prompt: 'c' },
+      })
+    ).json();
+    await app.inject({ method: 'POST', url: `/pulls/${pr.id}/review`, payload: { agentId: agent.id } });
+    await waitForPrRuns(pg.handle.db, pr.id, { expected: 1 });
+
+    const pulls = (await app.inject({ method: 'GET', url: `/repos/${repo.id}/pulls` })).json();
+    const thisPr = pulls.find((p: { number: number }) => p.number === 482);
+    expect(thisPr).toBeDefined();
+    expect(thisPr.cost_usd).toBeTypeOf('number');
+    expect(thisPr.cost_usd).toBeGreaterThan(0);
+
     await app.close();
   });
 

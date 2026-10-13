@@ -30,6 +30,7 @@ function run(o: Partial<RunSummary>): RunSummary {
     ran_at: "2026-06-11T18:44:34.000Z",
     score: null,
     blockers: null,
+    cost_usd: null,
     ...o,
   };
 }
@@ -71,5 +72,31 @@ describe("RunHistory — outcome badge", () => {
   it("a running run reads 'running'", () => {
     renderRuns([run({ status: "running", score: null, blockers: null })]);
     expect(screen.getByText("running")).toBeInTheDocument();
+  });
+});
+
+describe("RunHistory — cost display", () => {
+  it("settled run shows tokens and cost", () => {
+    renderRuns([run({ cost_usd: 0.0013, tokens_in: 9119, tokens_out: 1200 })]);
+    expect(screen.getByText(/\$0\.0013/)).toBeInTheDocument();
+    expect(screen.getByText(/9k→1\.2k/)).toBeInTheDocument();
+  });
+
+  it("settled run with cost but no tokens shows only cost", () => {
+    renderRuns([run({ cost_usd: 0.05, tokens_in: null, tokens_out: null })]);
+    expect(screen.getByText(/\$0\.050/)).toBeInTheDocument();
+    expect(screen.queryByText(/k→/)).not.toBeInTheDocument();
+  });
+
+  it("settled run with tokens but no cost shows only tokens", () => {
+    renderRuns([run({ cost_usd: null, tokens_in: 5000, tokens_out: 800 })]);
+    expect(screen.getByText(/5k→0\.8k/)).toBeInTheDocument();
+    expect(screen.queryByText(/\$/)).not.toBeInTheDocument();
+  });
+
+  it("running run shows neither tokens nor cost", () => {
+    renderRuns([run({ status: "running", cost_usd: null, tokens_in: null, tokens_out: null })]);
+    expect(screen.queryByText(/\$/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/k→/)).not.toBeInTheDocument();
   });
 });
