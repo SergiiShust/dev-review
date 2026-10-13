@@ -4,7 +4,7 @@
 
 import React from "react";
 import { useTranslations } from "next-intl";
-import { Toggle, EmptyState } from "@devdigest/ui";
+import { Toggle, EmptyState, SeverityBadge } from "@devdigest/ui";
 import type { FindingRecord } from "@devdigest/shared";
 import { FindingCard } from "../FindingCard";
 import { useFindingAction } from "../../../../../../../lib/hooks/reviews";
@@ -26,9 +26,13 @@ export function FindingsPanel({
   const t = useTranslations("prReview");
   const action = useFindingAction();
   const [hideLow, setHideLow] = React.useState(false);
+  const [severityFilter, setSeverityFilter] = React.useState<string | null>(null);
   const [focusIdx, setFocusIdx] = React.useState(0);
 
-  const shown = React.useMemo(() => visibleFindings(findings, hideLow), [findings, hideLow]);
+  const shown = React.useMemo(
+    () => visibleFindings(findings, hideLow, severityFilter),
+    [findings, hideLow, severityFilter],
+  );
 
   // j/k navigation + a/d shortcuts on the focused finding (keyboard).
   React.useEffect(() => {
@@ -48,6 +52,25 @@ export function FindingsPanel({
   return (
     <div>
       <div style={s.toolbar}>
+        <div style={{ display: "flex", gap: 6 }}>
+          {(["CRITICAL", "WARNING", "SUGGESTION"] as const).map((sev) => (
+            <button
+              key={sev}
+              type="button"
+              onClick={() => setSeverityFilter((prev) => (prev === sev ? null : sev))}
+              style={{
+                background: "none",
+                border: "none",
+                padding: 0,
+                cursor: "pointer",
+                opacity: severityFilter && severityFilter !== sev ? 0.35 : 1,
+                transition: "opacity .15s",
+              }}
+            >
+              <SeverityBadge severity={sev} compact />
+            </button>
+          ))}
+        </div>
         <div style={s.toggleGroup}>
           {t("panel.hideLowConfidence")}
           <Toggle on={hideLow} onChange={setHideLow} size={16} />
