@@ -209,6 +209,10 @@ d('A2 reviews + agents (Testcontainers pg)', () => {
     expect(run!.findingsCount).toBe(1);
     expect(run!.grounding).toBe('1/2 passed');
 
+    // cost persisted from MockLLM (costUsd: 0.001 per call)
+    expect(run!.costUsd).toBeTypeOf('number');
+    expect(trace.stats.cost_usd).toBeTypeOf('number');
+
     await app.close();
   });
 
@@ -286,6 +290,75 @@ d('A2 reviews + agents (Testcontainers pg)', () => {
     // The replay buffer should contain our log lines as SSE `data:` frames.
     expect(sse.payload).toContain('Starting review');
     expect(sse.payload).toContain('Citation grounding');
+    await app.close();
+  });
+
+  it('pulls list returns aggregated cost_usd per PR', async () => {
+    const app = await appWith(REVIEW_FIXTURE);
+    const { repo, pr } = await setupRepoAndPr(pg.handle.db, workspaceId);
+    const agent = (
+      await app.inject({
+        method: 'POST',
+        url: '/agents',
+        payload: { name: 'CostAgent', provider: 'openai', model: 'gpt-4.1', system_prompt: 'c' },
+      })
+    ).json();
+    await app.inject({ method: 'POST', url: `/pulls/${pr.id}/review`, payload: { agentId: agent.id } });
+    await waitForPrRuns(pg.handle.db, pr.id, { expected: 1 });
+
+    const pulls = (await app.inject({ method: 'GET', url: `/repos/${repo.id}/pulls` })).json();
+    const thisPr = pulls.find((p: { number: number }) => p.number === 482);
+    expect(thisPr).toBeDefined();
+    expect(thisPr.cost_usd).toBeTypeOf('number');
+    expect(thisPr.cost_usd).toBeGreaterThan(0);
+
+    await app.close();
+  });
+
+  it('pulls list findings_counts reflects ONLY the latest review, not every review aggregated', async () => {
+    // Pins the contract the FindingsPopover mirrors on the client: the PR-list
+    // findings badge counts the newest `kind:"review"` review alone. A PR with
+    // an older 3-finding review and a newer 1-finding review must report the
+    // newer review's counts (0/1/0) — not the 1/2/1 aggregate.
+    const app = await appWith(REVIEW_FIXTURE);
+    const { repo, pr } = await setupRepoAndPr(pg.handle.db, workspaceId);
+
+    async function addReview(
+      createdAt: Date,
+      score: number,
+      sevs: Array<'CRITICAL' | 'WARNING' | 'SUGGESTION'>,
+    ) {
+      const [rev] = await pg.handle.db
+        .insert(t.reviews)
+        .values({ workspaceId, prId: pr.id, kind: 'review', score, model: 'seed', createdAt })
+        .returning();
+      await pg.handle.db.insert(t.findings).values(
+        sevs.map((severity, i) => ({
+          reviewId: rev!.id,
+          file: 'src/config.ts',
+          startLine: 10 + i,
+          endLine: 10 + i,
+          severity,
+          category: 'bug',
+          title: `${severity} finding ${i}`,
+          rationale: 'r',
+          confidence: 0.9,
+        })),
+      );
+    }
+
+    // Older review: 3 findings across all severities. Newer: a single WARNING.
+    await addReview(new Date('2020-01-01T00:00:00Z'), 20, ['CRITICAL', 'WARNING', 'SUGGESTION']);
+    await addReview(new Date('2020-01-02T00:00:00Z'), 80, ['WARNING']);
+
+    const pulls = (await app.inject({ method: 'GET', url: `/repos/${repo.id}/pulls` })).json();
+    const thisPr = pulls.find((p: { number: number }) => p.number === 482);
+    expect(thisPr).toBeDefined();
+    // Latest review only — NOT the aggregate { CRITICAL: 1, WARNING: 2, SUGGESTION: 1 }.
+    expect(thisPr.findings_counts).toEqual({ CRITICAL: 0, WARNING: 1, SUGGESTION: 0 });
+    // Score comes from the same latest review for the same reason.
+    expect(thisPr.score).toBe(80);
+
     await app.close();
   });
 

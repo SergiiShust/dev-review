@@ -6,7 +6,7 @@
 "use client";
 
 import React from "react";
-import { Icon, Badge } from "@devdigest/ui";
+import { Icon, Badge, SeverityBadge } from "@devdigest/ui";
 import type { ReviewRecord, Verdict } from "@devdigest/shared";
 import { FindingsPanel } from "../FindingsPanel";
 import { VerdictBanner } from "../VerdictBanner";
@@ -93,9 +93,11 @@ export function ReviewRunAccordion({
             {review.verdict.replace("_", " ")}
           </Badge>
         )}
-        <span style={{ fontSize: 12.5, color: "var(--text-muted)" }}>
-          {findings.length} finding{findings.length === 1 ? "" : "s"}
-          {blockers > 0 ? ` · ${blockers} blocker${blockers === 1 ? "" : "s"}` : ""}
+        <span style={{ display: "inline-flex", gap: 4, alignItems: "center" }}>
+          {(["CRITICAL", "WARNING", "SUGGESTION"] as const).map((sev) => {
+            const count = findings.filter((f) => f.severity === sev).length;
+            return count > 0 ? <SeverityBadge key={sev} severity={sev} count={count} compact /> : null;
+          })}
         </span>
         <span style={{ flex: 1 }} />
         {review.score != null && (

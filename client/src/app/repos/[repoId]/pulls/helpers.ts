@@ -7,6 +7,9 @@ export function sizeOf(pr: PrMeta): SizeInfo {
   return { size, lines };
 }
 
+// Re-export from the shared location (single source of truth).
+export { formatCost } from "@/lib/format";
+
 /** Compact relative time for the list's UPDATED column (e.g. "3h", "2d"). */
 export function relativeTime(iso: string | null | undefined): string {
   if (!iso) return "—";
