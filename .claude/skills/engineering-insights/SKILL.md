@@ -13,7 +13,7 @@ Capture non-obvious engineering knowledge into per-package `INSIGHTS.md` files s
 
 2. **When**: After solving a non-trivial problem, discovering a gotcha, finding a reusable pattern, or learning something surprising about a dependency. Skip trivial config changes, formatting-only sessions, or obvious facts.
 
-3. **Format**: `- **[YYYY-MM-DD]** description (file:line when applicable)` — append under the matching section heading.
+3. **Format**: `- **[YYYY-MM-DD]** description (file:line)` — append under the matching section heading. Always cite `file:line`, not just the path, so the next reader lands on the exact code. Cite every file a claim refers to; use a line range (`:50-82`) when it spans several lines.
 
 4. **Quality gate**: Every entry must be **actionable cold** — a reader encountering it months later should know exactly what to do or avoid without re-investigating. If it's obvious to anyone reading the code, don't write it.
 
