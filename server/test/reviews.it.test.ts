@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { startPg, dockerAvailable, type PgFixture } from './helpers/pg.js';
 import { waitForPrRuns } from './helpers/runs.js';
@@ -315,23 +316,20 @@ d('A2 reviews + agents (Testcontainers pg)', () => {
     await app.close();
   });
 
-  it('pulls list findings_counts reflects ONLY the latest review, not every review aggregated', async () => {
-    // Pins the contract the FindingsPopover mirrors on the client: the PR-list
-    // findings badge counts the newest `kind:"review"` review alone. A PR with
-    // an older 3-finding review and a newer 1-finding review must report the
-    // newer review's counts (0/1/0) — not the 1/2/1 aggregate.
-    const app = await appWith(REVIEW_FIXTURE);
-    const { repo, pr } = await setupRepoAndPr(pg.handle.db, workspaceId);
-
-    async function addReview(
-      createdAt: Date,
-      score: number,
-      sevs: Array<'CRITICAL' | 'WARNING' | 'SUGGESTION'>,
-    ) {
-      const [rev] = await pg.handle.db
-        .insert(t.reviews)
-        .values({ workspaceId, prId: pr.id, kind: 'review', score, model: 'seed', createdAt })
-        .returning();
+  // Shared helper: insert a `kind:"review"` row (optionally tied to an agent)
+  // plus its findings. `agentId` left undefined means an agentless review.
+  async function addReviewFor(
+    prId: string,
+    createdAt: Date,
+    score: number,
+    sevs: Array<'CRITICAL' | 'WARNING' | 'SUGGESTION'>,
+    agentId?: string,
+  ) {
+    const [rev] = await pg.handle.db
+      .insert(t.reviews)
+      .values({ workspaceId, prId, kind: 'review', score, model: 'seed', createdAt, agentId })
+      .returning();
+    if (sevs.length > 0) {
       await pg.handle.db.insert(t.findings).values(
         sevs.map((severity, i) => ({
           reviewId: rev!.id,
@@ -346,10 +344,19 @@ d('A2 reviews + agents (Testcontainers pg)', () => {
         })),
       );
     }
+  }
+
+  it('pulls list findings_counts counts the latest review PER AGENT, not every review of that agent', async () => {
+    // Re-running the SAME agent must not double-count: a PR with an older
+    // 3-finding review and a newer 1-finding review from the same agent must
+    // report the newer review's counts (0/1/0) — not the 1/2/1 aggregate.
+    const app = await appWith(REVIEW_FIXTURE);
+    const { repo, pr } = await setupRepoAndPr(pg.handle.db, workspaceId);
 
     // Older review: 3 findings across all severities. Newer: a single WARNING.
-    await addReview(new Date('2020-01-01T00:00:00Z'), 20, ['CRITICAL', 'WARNING', 'SUGGESTION']);
-    await addReview(new Date('2020-01-02T00:00:00Z'), 80, ['WARNING']);
+    // Both agentless → treated as the same agent → only the newest counts.
+    await addReviewFor(pr.id, new Date('2020-01-01T00:00:00Z'), 20, ['CRITICAL', 'WARNING', 'SUGGESTION']);
+    await addReviewFor(pr.id, new Date('2020-01-02T00:00:00Z'), 80, ['WARNING']);
 
     const pulls = (await app.inject({ method: 'GET', url: `/repos/${repo.id}/pulls` })).json();
     const thisPr = pulls.find((p: { number: number }) => p.number === 482);
@@ -358,6 +365,32 @@ d('A2 reviews + agents (Testcontainers pg)', () => {
     expect(thisPr.findings_counts).toEqual({ CRITICAL: 0, WARNING: 1, SUGGESTION: 0 });
     // Score comes from the same latest review for the same reason.
     expect(thisPr.score).toBe(80);
+
+    await app.close();
+  });
+
+  it('pulls list findings_counts SUMS each agent latest review across a multi-agent review', async () => {
+    // When several agents review one PR, the badge must reflect ALL of them —
+    // the latest run of EACH agent — not just whichever agent finished last.
+    const app = await appWith(REVIEW_FIXTURE);
+    const { repo, pr } = await setupRepoAndPr(pg.handle.db, workspaceId);
+    const agentA = randomUUID();
+    const agentB = randomUUID();
+
+    // Agent A: an older review (ignored) then its latest → 1 CRITICAL.
+    await addReviewFor(pr.id, new Date('2020-01-01T00:00:00Z'), 10, ['WARNING', 'WARNING'], agentA);
+    await addReviewFor(pr.id, new Date('2020-01-03T00:00:00Z'), 50, ['CRITICAL'], agentA);
+    // Agent B: a single review → 1 WARNING + 1 SUGGESTION.
+    await addReviewFor(pr.id, new Date('2020-01-02T00:00:00Z'), 70, ['WARNING', 'SUGGESTION'], agentB);
+
+    const pulls = (await app.inject({ method: 'GET', url: `/repos/${repo.id}/pulls` })).json();
+    const thisPr = pulls.find((p: { number: number }) => p.number === 482);
+    expect(thisPr).toBeDefined();
+    // Sum of A's latest (1 CRITICAL) + B's latest (1 WARNING, 1 SUGGESTION) —
+    // NOT just agent A's newest review (1/0/0) alone.
+    expect(thisPr.findings_counts).toEqual({ CRITICAL: 1, WARNING: 1, SUGGESTION: 1 });
+    // Score still tracks the single newest review overall (agent A, score 50).
+    expect(thisPr.score).toBe(50);
 
     await app.close();
   });
