@@ -9,18 +9,27 @@ import { usePrReviews } from "@/lib/hooks/reviews";
 const SEV_ORDER: Severity[] = ["CRITICAL", "WARNING", "SUGGESTION"];
 
 /**
- * The single newest `kind: "review"` review, as a 0-or-1 element array. Mirrors
- * the server's PR-list badge, which counts findings from the latest review only
- * (reviews ordered by `created_at` desc). Summary-kind rows carry no findings
- * and are excluded so they can't win the "latest" slot.
+ * Each agent's latest `kind: "review"` review. Mirrors the server's PR-list
+ * badge, which sums findings across every agent's latest review
+ * (server/src/modules/pulls/routes.ts:118-143). Rows are sorted by `created_at`
+ * desc then deduped by `agent_id`, so the result is order-independent of the API
+ * response. Summary-kind rows carry no findings and are excluded so they can't
+ * win an agent's "latest" slot.
  */
-function latestReview(reviews: ReviewRecord[]): ReviewRecord[] {
-  let latest: ReviewRecord | null = null;
-  for (const r of reviews) {
-    if (r.kind !== "review") continue;
-    if (!latest || Date.parse(r.created_at) > Date.parse(latest.created_at)) latest = r;
+function latestReviewsPerAgent(reviews: ReviewRecord[]): ReviewRecord[] {
+  const sorted = [...reviews]
+    .filter((r) => r.kind === "review")
+    .sort((a, b) => Date.parse(b.created_at) - Date.parse(a.created_at));
+  const seen = new Set<string>();
+  const out: ReviewRecord[] = [];
+  for (const r of sorted) {
+    const key = r.agent_id ?? "none";
+    if (!seen.has(key)) {
+      seen.add(key);
+      out.push(r);
+    }
   }
-  return latest ? [latest] : [];
+  return out;
 }
 
 interface Props {
@@ -53,13 +62,13 @@ export function FindingsPopover({ prId, visible, anchorRef, runId }: Props) {
 
   // Scope the findings to match the badge the popover hangs off of:
   //  - run timeline (runId set): the review(s) produced by that specific run;
-  //  - PR list (no runId): the single LATEST review, since the PR row's findings
-  //    badge counts only the latest review — aggregating every review here made
-  //    the popover read e.g. "11" against a badge of "4".
+  //  - PR list (no runId): each agent's latest review, summed — the same rule the
+  //    PR row's findings badge uses. Scoping to a single review here would make
+  //    the popover read "1" against a multi-agent badge of "5".
   const reviewList = reviews ?? [];
   const scoped = runId
     ? reviewList.filter((r) => r.run_id === runId)
-    : latestReview(reviewList);
+    : latestReviewsPerAgent(reviewList);
   const allFindings = scoped.flatMap((r) => r.findings);
   if (allFindings.length === 0) return null;
 
