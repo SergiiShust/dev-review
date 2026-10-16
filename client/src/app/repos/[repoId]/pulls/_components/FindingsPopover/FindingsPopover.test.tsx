@@ -2,9 +2,9 @@
  * FindingsPopover — scoping regression guards.
  *
  * The popover hangs off a findings badge and MUST agree with that badge's count:
- *  - PR list (no runId): the badge counts only the PR's LATEST review, so the
- *    popover must show that review's findings — not every review aggregated
- *    (the "badge says 4, popover says 11" bug).
+ *  - PR list (no runId): the badge sums each agent's LATEST review, so the popover
+ *    must show those same findings — every agent's latest, but not an agent's
+ *    superseded older review (the "badge says 5, popover says 1" bug).
  *  - Run timeline (runId set): only the findings from that run's review.
  */
 import React from "react";
@@ -70,9 +70,10 @@ function Harness({ runId }: { runId?: string | null }) {
   );
 }
 
-describe("FindingsPopover — PR-list (latest review) scope", () => {
-  it("shows only the latest review's findings, matching the badge count", () => {
-    // Older review has 3 findings; newest has 1. Badge counts the newest → 1.
+describe("FindingsPopover — PR-list (latest-per-agent) scope", () => {
+  it("shows only the agent's latest review, not its superseded older one", () => {
+    // Same agent, two reviews: older has 3 findings, newer has 1. The agent's
+    // latest wins → 1, matching the badge (which dedupes per agent).
     mockReviews = [
       review({
         id: "rev-new",
@@ -89,6 +90,36 @@ describe("FindingsPopover — PR-list (latest review) scope", () => {
     expect(screen.getByText(/^1 FINDING$/)).toBeInTheDocument();
     expect(screen.getByText("Finding f1")).toBeInTheDocument();
     expect(screen.queryByText("Finding f2")).not.toBeInTheDocument();
+  });
+
+  it("sums each agent's latest review across agents, matching the aggregated badge", () => {
+    // Agent a1: older review (ignored) + newer (1 finding). Agent a2: 2 findings.
+    // Badge sums per-agent latest → 3; the popover must match, and a1's older
+    // review is excluded. This is the multi-agent case the old latest-only
+    // scoping got wrong ("badge 5, popover 1").
+    mockReviews = [
+      review({
+        id: "a1-new",
+        agent_id: "a1",
+        created_at: "2026-06-11T20:00:00.000Z",
+        findings: [finding("f1", "a1-new")],
+      }),
+      review({
+        id: "a1-old",
+        agent_id: "a1",
+        created_at: "2026-06-11T18:00:00.000Z",
+        findings: [finding("fx", "a1-old"), finding("fy", "a1-old")],
+      }),
+      review({
+        id: "a2",
+        agent_id: "a2",
+        created_at: "2026-06-11T19:00:00.000Z",
+        findings: [finding("f2", "a2"), finding("f3", "a2")],
+      }),
+    ];
+    render(<Harness />);
+    expect(screen.getByText(/^3 FINDINGS$/)).toBeInTheDocument();
+    expect(screen.queryByText("Finding fx")).not.toBeInTheDocument();
   });
 
   it("ignores summary-kind reviews when picking the latest", () => {

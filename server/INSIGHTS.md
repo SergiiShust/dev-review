@@ -1,18 +1,19 @@
 # Server Insights
 
 Engineering knowledge captured during development sessions.
-Format: `- **[YYYY-MM-DD]** description (file:line when applicable)`
+Format: `- **[YYYY-MM-DD]** description (file:line)` — always cite file:line,
+not just the path, so the next reader lands on the exact code.
 
 ## What Works
 
-- **[2026-10-12]** Adding a nullable column to `agent_runs` via Drizzle: add the column to the schema, run `pnpm db:generate`, and the migration is a single `ALTER TABLE ADD COLUMN` — no data backfill needed since existing rows get NULL. No index needed for small tables; the pulls route aggregates with an IN-query + JS grouping (same pattern as the score aggregation).
+- **[2026-10-12]** Adding a nullable column to `agent_runs` via Drizzle: add the column to the schema, run `pnpm db:generate`, and the migration is a single `ALTER TABLE ADD COLUMN` — no data backfill needed since existing rows get NULL. No index needed for small tables; the pulls route aggregates with an IN-query + JS grouping (same pattern as the score aggregation) (column: server/src/db/schema/runs.ts:8; aggregation: server/src/modules/pulls/routes.ts:156-168).
 
 ## What Doesn't Work
 
 ## Codebase Patterns
 
-- **[2026-10-12]** `ReviewRepository` (server/src/modules/reviews/repository.ts) is a thin wrapper that re-declares the type signatures of `run.repo.ts` functions. When adding a field to `completeAgentRun`, you must update BOTH the standalone function in `repository/run.repo.ts` AND the class method in `repository.ts` — the class doesn't use `Parameters<>` or `typeof`, it redeclares the shape inline. Missing either causes TS2353.
-- **[2026-10-12]** Cost data flows: `reviewer-core` computes `costUsd` on `ReviewOutcome` → `run-executor.ts` destructures it → `completeAgentRun()` persists to `agent_runs.cost_usd` → `listRunsForPull` maps it to `RunSummary.cost_usd` → client reads it. The `trace.stats.cost_usd` is a separate copy stored in the jsonb trace document for the drawer view.
+- **[2026-10-12]** `ReviewRepository` (server/src/modules/reviews/repository.ts:151) is a thin wrapper that re-declares the type signatures of `run.repo.ts` functions. When adding a field to `completeAgentRun`, you must update BOTH the standalone function in `repository/run.repo.ts:176` AND the class method in `repository.ts:151` — the class doesn't use `Parameters<>` or `typeof`, it redeclares the shape inline. Missing either causes TS2353.
+- **[2026-10-12]** Cost data flows: `reviewer-core` computes `costUsd` on `ReviewOutcome` → `run-executor.ts:213` destructures it → `completeAgentRun()` persists to `agent_runs.cost_usd` (schema: server/src/db/schema/runs.ts:21; write: repository/run.repo.ts:207) → `listRunsForPull` maps it to `RunSummary.cost_usd` (repository/run.repo.ts:100) → client reads it. The `trace.stats.cost_usd` is a separate copy stored in the jsonb trace document for the drawer view.
 
 ## Tool & Library Notes
 
@@ -24,6 +25,7 @@ Format: `- **[YYYY-MM-DD]** description (file:line when applicable)`
 
 - **[2026-10-13]** Correction to above: the `latestReviewByPr` map was updated to also store `reviewId` (select `t.reviews.id` alongside `score`), avoiding a redundant second query on `reviews`. The pattern is now: one `reviews` query (selecting id + score, newest-first, first-seen = latest), then one `findings` query filtered by those review IDs, with a `reviewToPr` reverse map to attribute counts back to PRs (server/src/modules/pulls/routes.ts:118-155).
 
+- **[2026-10-16]** PR-list FINDINGS column must aggregate the latest review PER AGENT, not the single newest review per PR. Multi-agent review = one `reviews` row per agent (distinct `agentId`+`runId`, see `service.ts:98-137`), so picking only `reviewRows[0]` per PR drops every other agent's findings. Fix: group newest-first rows by `` `${prId}::${agentId ?? 'none'}` ``, keep first-seen per key, sum findings across all of them. SCORE stays single-newest-review per PR (separate concern). `reviews.agentId` has NO FK (`schema/reviews.ts:17`), so tests can seed arbitrary `randomUUID()` agent ids without creating agent rows (server/src/modules/pulls/routes.ts:117-154).
 - **[2026-10-13]** `listRunsForPull` severity counts follow the same two-hop pattern: runs → reviews (by `runId IN (...)`) → findings (by `reviewId IN (...)`). The `reviews.runId` column links runs to reviews but has no FK constraint, so use `inArray` not a join. Build a `reviewToRun` map to attribute finding severities back to the originating run (server/src/modules/reviews/repository/run.repo.ts:50-82).
 
 - **[2026-10-12]** `MockLLMProvider` returns `costUsd: 0.001` per call (server/src/adapters/mocks.ts:85,101). Integration tests can assert `costUsd` is a number and `> 0` — but don't assert exact values since map-reduce strategy may call the LLM multiple times, making the total depend on the diff size and strategy selection.

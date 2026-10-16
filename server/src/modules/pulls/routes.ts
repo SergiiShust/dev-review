@@ -115,30 +115,40 @@ export default async function pullsRoutes(appBase: FastifyInstance) {
     // Computed on read from reviews + findings (no FK denorm); the list is
     // small, so a couple of IN-queries + JS grouping is cheap.
     const prIds = rows.map((r) => r.id);
+    // latestReviewByPr → SCORE column: the single newest review per PR.
     const latestReviewByPr = new Map<string, { score: number | null; reviewId: string }>();
+    // FINDINGS column: the latest review per (PR, agent) so a multi-agent
+    // review sums EVERY agent's latest run, not just whichever finished last.
+    const seenAgentKey = new Set<string>(); // `${prId}::${agentId}`
+    const findingReviewIds: string[] = []; // one review per agent per PR
+    const reviewToPr = new Map<string, string>(); // reviewId → prId (attribution)
     if (prIds.length > 0) {
       const reviewRows = await container.db
-        .select({ prId: t.reviews.prId, score: t.reviews.score, id: t.reviews.id })
+        .select({ prId: t.reviews.prId, score: t.reviews.score, id: t.reviews.id, agentId: t.reviews.agentId })
         .from(t.reviews)
         .where(and(inArray(t.reviews.prId, prIds), eq(t.reviews.kind, 'review')))
         .orderBy(desc(t.reviews.createdAt));
-      // Rows are newest-first → first seen per PR is the latest review.
+      // Rows are newest-first.
       for (const rv of reviewRows) {
+        // SCORE: first row seen per PR = latest review overall.
         if (!latestReviewByPr.has(rv.prId)) latestReviewByPr.set(rv.prId, { score: rv.score, reviewId: rv.id });
+        // FINDINGS: first row seen per (PR, agent) = that agent's latest run.
+        const agentKey = `${rv.prId}::${rv.agentId ?? 'none'}`;
+        if (!seenAgentKey.has(agentKey)) {
+          seenAgentKey.add(agentKey);
+          findingReviewIds.push(rv.id);
+          reviewToPr.set(rv.id, rv.prId);
+        }
       }
     }
 
-    // Per-severity finding counts for the latest review of each PR.
+    // Per-severity finding counts summed across each agent's latest review.
     const findingsByPr = new Map<string, { CRITICAL: number; WARNING: number; SUGGESTION: number }>();
-    const latestReviewIds = [...latestReviewByPr.values()].map((v) => v.reviewId);
-    if (latestReviewIds.length > 0) {
+    if (findingReviewIds.length > 0) {
       const findingRows = await container.db
         .select({ reviewId: t.findings.reviewId, severity: t.findings.severity })
         .from(t.findings)
-        .where(inArray(t.findings.reviewId, latestReviewIds));
-      // Build a reverse map: reviewId → prId
-      const reviewToPr = new Map<string, string>();
-      for (const [prId, rv] of latestReviewByPr) reviewToPr.set(rv.reviewId, prId);
+        .where(inArray(t.findings.reviewId, findingReviewIds));
       for (const f of findingRows) {
         const prId = reviewToPr.get(f.reviewId);
         if (!prId) continue;
