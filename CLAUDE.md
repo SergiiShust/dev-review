@@ -75,6 +75,7 @@ bare `gh pr view 1` resolves to upstream — always pass
 - Read `docs/agent-prompts/README.md` when working on agent system prompts
 - Read `<module>/README.md` when working inside that module for API maps, diagrams, and flow details
 - Read `<module>/INSIGHTS.md` at session start when working inside a module — review for relevant gotchas and patterns
+- Use the `onion-architecture` skill when adding or moving files in `server/src/` (routes/services/repositories/adapters, ports, the container) or reviewing backend layering
 
 ## Engineering insights protocol
 
