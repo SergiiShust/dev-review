@@ -33,7 +33,7 @@ pnpm typecheck
 
 ## Read when
 
-- Invoke the `ui-architecture` skill when deciding where a file belongs — Next.js route
+- Invoke the `frontend-architecture` skill when deciding where a file belongs — Next.js route
   structure, server/client boundaries, and placement of components, constants, utils, hooks,
   state, styles, tests, and types (the "what goes where" map)
 - Read `README.md` when working on routes, UI architecture, or the API hook layer

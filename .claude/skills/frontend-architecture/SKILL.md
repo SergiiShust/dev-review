@@ -1,5 +1,6 @@
 ---
-name: ui-architecture
+name: frontend-architecture
+version: "1.0.0"
 description: "DevDigest client (@devdigest/web) UI architecture — Next.js App Router structure (server/client boundaries, route composition, segment files) plus where to put pages, components, constants, utils, business logic, data-fetching hooks, state, styles, types, and tests, and file-naming rules. Use when creating or moving any file in client/, deciding where code belongs, structuring routes, or reviewing client structure. Covers architecture, not performance — for Next.js optimization and generic React/testing rules see the next-best-practices, react-best-practices, and react-testing-library skills."
 ---
 
