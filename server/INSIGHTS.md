@@ -17,6 +17,8 @@ not just the path, so the next reader lands on the exact code.
 
 ## Tool & Library Notes
 
+- **[2026-10-18]** Run per-package checks with `pnpm -C <dir> …`, never `cd <dir> && …`: an agent's parallel Bash calls share one working directory, so two `cd`-based commands race and one executes in the wrong package (observed this session — a `cd client && pnpm test` ran the *server* suite). `-C` carries its own directory and is immune. Separately, `pnpm -C server test` runs the FULL suite including the Docker-backed `*.it.test.ts` (testcontainers Postgres); for the hermetic subset only, use `pnpm -C server exec vitest run --exclude '**/*.it.test.ts'`. Both rules are codified in the pre-gate (.claude/skills/pr-self-review/SKILL.md Step 3b).
+
 ## Recurring Errors & Fixes
 
 ## Session Notes
