@@ -1,0 +1,44 @@
+#!/usr/bin/env bash
+#
+# pre-push.sample — optional native git gate for the TERMINAL path (pushes made
+# outside Claude). Same proof-of-review check as .claude/hooks/pr-self-review-gate.sh,
+# minus the `gh pr create` matching (pre-push gates every push of this branch).
+#
+# Install with: scripts/install-hooks.sh   (symlinks this into .git/hooks/pre-push)
+# Bypass once with: git push --no-verify
+set -euo pipefail
+
+REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || true)"
+[ -n "$REPO_ROOT" ] || exit 0
+VERDICT="$REPO_ROOT/.git/pr-self-review.json"
+
+block() {
+  echo "pr-self-review (pre-push): $1" >&2
+  echo "Run /pr-self-review (or git push --no-verify to bypass)." >&2
+  exit 1
+}
+
+[ -f "$VERDICT" ] || block "no self-review on record for this branch."
+
+read -r VERDICT_VALUE BASE RECORDED_HASH < <(
+  python3 - "$VERDICT" <<'PY' 2>/dev/null || true
+import json, sys
+try:
+    d = json.load(open(sys.argv[1]))
+except Exception:
+    print("", "main", ""); sys.exit(0)
+print(d.get("verdict", ""), d.get("base", "main") or "main", d.get("diffHash", ""))
+PY
+)
+
+[ "${VERDICT_VALUE:-}" = "PASS" ] || block "last self-review verdict was ${VERDICT_VALUE:-missing}."
+
+CURRENT_HASH="$(
+  { git -C "$REPO_ROOT" diff --merge-base "$BASE" HEAD; git -C "$REPO_ROOT" diff HEAD; } 2>/dev/null \
+    | shasum -a 256 | awk '{print $1}'
+)"
+
+[ -n "$CURRENT_HASH" ] && [ "$CURRENT_HASH" = "$RECORDED_HASH" ] \
+  || block "changes moved since the last PASS (stale review)."
+
+exit 0
