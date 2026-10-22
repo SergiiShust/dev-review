@@ -21,6 +21,8 @@ not just the path, so the next reader lands on the exact code.
 
 ## Recurring Errors & Fixes
 
+- **[2026-10-22]** Drizzle throws `Error: No values to set` (→ HTTP 500) when `.update().set({})` gets an empty object — which is exactly what the house "conditional-spread patch" pattern produces for a PUT with `{}` or with only unchanged fields. Build the set object first and return the existing row when `Object.keys(changes).length === 0` (server/src/modules/skills/repository/skills.repo.ts:131-140). `AgentsRepository.update` still has the unguarded pattern — `PUT /agents/:id` with `{}` 500s (server/src/modules/agents/repository.ts:124-142).
+
 ## Session Notes
 
 - **[2026-10-12]** The pulls list route (`GET /repos/:id/pulls`) already queries `reviews` for latest score. Adding findings counts requires a second query for review IDs (the score query doesn't select `id`), then a third query on `findings` grouped by severity. The `latestReviewByPr` map only stores `{ score }`, so you can't reuse it to get review IDs — you must re-query `reviews` to get the ID for the latest review per PR (server/src/modules/pulls/routes.ts:148-160).

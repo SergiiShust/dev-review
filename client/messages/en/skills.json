@@ -3,99 +3,95 @@
     "crumbLab": "Skills Lab",
     "crumbSkills": "Skills",
     "heading": "Skills",
+    "subtitle": "Reusable prompt snippets — rubrics, house conventions, security gates. Attach them to any agent.",
     "addSkill": "Add Skill",
+    "createFromScratch": "Create from scratch",
     "searchPlaceholder": "Search skills…",
     "loadError": "Could not load skills.",
-    "menu": {
-      "fromFile": "Import from file",
-      "fromUrl": "Import from URL",
-      "community": "Search community skills…"
-    },
     "empty": {
       "title": "No skills yet",
-      "body": "Import a skill from a file, a URL, or the community catalog.",
-      "cta": "Import from file"
+      "body": "Create a skill — a markdown snippet your agents add to their review prompt.",
+      "cta": "Create a skill"
     },
-    "selectPrompt": {
-      "title": "Select a skill",
-      "body": "Pick a skill on the left to preview its body."
-    }
+    "noMatch": "No skills match your search."
   },
   "detail": {
     "crumbSkill": "Skill",
-    "back": "← All skills",
-    "loadError": "Could not load this skill.",
-    "notFound": {
-      "title": "Skill not found",
-      "body": "It may have been deleted."
-    }
+    "disabled": "disabled",
+    "loadErrorTitle": "Couldn’t load this skill",
+    "loadError": "The skill could not be loaded.",
+    "deleteConfirm": "Delete skill \"{name}\"? Agents using it will stop receiving it. This cannot be undone.",
+    "delete": "Delete skill"
   },
-  "drawer": {
-    "title": "Add a skill",
-    "subtitle": "Import from a file, a URL, or search vetted community skills",
-    "tabs": {
-      "file": "From file",
-      "url": "From URL",
-      "community": "Community"
-    },
-    "importFailed": "Import failed"
+  "card": {
+    "noDescription": "No description",
+    "agentCount": "{count, plural, =0 {no agents} one {# agent} other {# agents}}"
   },
-  "file": {
-    "nameLabel": "Skill name",
-    "nameHint": "Optional — derived from the first heading if blank.",
+  "create": {
+    "title": "New skill",
+    "subtitle": "Name it and pick a type — you’ll write the body in the editor.",
+    "name": "Name",
     "namePlaceholder": "pr-quality-rubric",
-    "bodyLabel": "Skill body (Markdown)",
-    "bodyHint": "Pasted content is wrapped as untrusted data — never executed as instructions.",
-    "bodyPlaceholder": "# Rule\nDescribe the rule…",
-    "importing": "Importing…",
-    "import": "Import skill",
-    "success": "Imported \"{name}\" (stored as untrusted data)."
+    "description": "Description",
+    "descriptionPlaceholder": "What this skill tells the reviewer to check",
+    "type": "Type",
+    "cancel": "Cancel",
+    "create": "Create skill",
+    "creating": "Creating…"
   },
-  "url": {
-    "label": "Skill URL",
-    "hint": "Fetched server-side, stored as untrusted, and left disabled until vetted.",
-    "placeholder": "https://example.com/skills/security.md",
-    "fetching": "Fetching…",
-    "import": "Import from URL",
-    "success": "Imported \"{name}\". Disabled until you vet + enable it."
-  },
-  "community": {
-    "searchPlaceholder": "Search community skills (e.g. security)…",
-    "allLanguages": "All languages",
-    "loadError": "Could not load community skills",
-    "retry": "Retry",
-    "noMatch": {
-      "title": "No matching skills",
-      "body": "Try a different search term."
+  "editor": {
+    "tabs": {
+      "config": "Config",
+      "preview": "Preview",
+      "versions": "Versions"
     },
-    "importing": "Importing…",
-    "import": "Import"
+    "unsaved": "unsaved",
+    "tokens": "~{count} tokens"
   },
-  "listItem": {
-    "needsVetting": "needs vetting",
-    "vettingTitle": "Untrusted source — vet before enabling",
-    "type": {
-      "rubric": "rubric",
-      "convention": "convention",
-      "security": "security",
-      "custom": "custom"
-    },
-    "source": {
-      "manual": "Manual",
-      "extracted": "Extracted",
-      "community": "Community",
-      "imported_url": "Imported"
-    }
+  "config": {
+    "title": "Configuration",
+    "enabled": "Enabled",
+    "name": "Name",
+    "description": "Description",
+    "type": "Type",
+    "body": "Skill body",
+    "bodyHint": "Markdown. Saving a changed body creates a new immutable version.",
+    "bodyPlaceholder": "# Rule\nDescribe what the reviewer should check…",
+    "save": "Save",
+    "saving": "Saving…",
+    "savedToast": "Skill saved (v{version})",
+    "nameRequired": "Name is required."
   },
   "preview": {
-    "untrustedBadge": "untrusted source",
-    "enabled": "Enabled",
-    "disabled": "Disabled",
-    "save": "Save",
-    "edit": "Edit",
-    "untrustedNotice": "This skill came from an untrusted source. Its body is stored as data (delimiter-wrapped) and must be vetted before it is enabled for an agent.",
-    "bodyLabel": "Skill body (Markdown)",
-    "bodyHint": "Saving a changed body creates a new immutable version.",
-    "version": "v{version}"
+    "title": "Preview",
+    "subtitle": "Rendered as the reviewing agent receives it.",
+    "empty": "Nothing to preview yet — write the body in Config."
+  },
+  "versions": {
+    "title": "Version history",
+    "count": "{count, plural, one {# version} other {# versions}}",
+    "subtitle": "Every body change is snapshotted, so you can compare and roll back to the exact text an agent used.",
+    "current": "Current",
+    "diff": "Diff",
+    "hideDiff": "Hide diff",
+    "restore": "Restore",
+    "restoreConfirm": "Restore v{version}? This saves its body as a new version; history is kept.",
+    "restoredToast": "Restored v{from} as v{version}",
+    "diffAgainst": "Changes from v{version} to the current body",
+    "noChanges": "Identical to the current body.",
+    "empty": "No versions recorded yet.",
+    "loadError": "Could not load version history."
+  },
+  "type": {
+    "rubric": "rubric",
+    "convention": "convention",
+    "security": "security",
+    "custom": "custom"
+  },
+  "source": {
+    "manual": "Manual",
+    "extracted": "Extracted",
+    "community": "Community",
+    "imported_url": "Imported"
   }
 }

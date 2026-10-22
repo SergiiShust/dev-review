@@ -25,6 +25,8 @@ Format: `- **[YYYY-MM-DD]** description (file:line when applicable)`
 
 ## Recurring Errors & Fixes
 
+- **[2026-10-22]** The vendored `<Markdown>` primitive only styles inline elements (`p`/`strong`/`code`/`a`), and the Tailwind preflight strips heading sizes and list bullets — so `#`/`##` headings and `- items` render as plain body text. For document-style markdown, wrap it in a container with a scoped descendant-selector class in `globals.css` (styles.ts `CSSProperties` can't express descendant selectors); see `.dd-skill-preview` (client/src/app/globals.css:19-50; client/src/app/skills/[id]/_components/SkillEditor/_components/PreviewTab/PreviewTab.tsx:16; client/src/vendor/ui/primitives/Markdown.tsx:12-13).
+
 - **[2026-10-12]** `messages/en/prReview.json` contains Unicode smart quotes (U+201C, U+201D) in `emptyStatusBody`. Editing lines near it with the Edit tool corrupts the UTF-8 bytes into different characters, breaking Vite's JSON parser at test time. Use `sed -i ''` for insertions near that line, or place new keys away from it. Validate with `python3 -c "import json; json.load(open('messages/en/prReview.json'))"` after any edit.
 
 ## Session Notes

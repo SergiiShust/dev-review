@@ -7,6 +7,7 @@ import {
   SECURITY_REVIEWER_PROMPT,
   PERFORMANCE_REVIEWER_PROMPT,
 } from './seed-prompts.js';
+import { SEED_SKILLS } from './seed-skills.js';
 
 /** Default provider/model for the built-in reviewer agents. */
 const DEFAULT_PROVIDER = 'openrouter' as const;
@@ -18,11 +19,13 @@ const DEFAULT_MODEL = 'deepseek/deepseek-v4-flash';
  *
  * Seeds: default workspace + system user + membership, default settings,
  * demo repo (acme/payments-api), PR #482 with files/commits, a sample review
- * with a few findings, and the three built-in agents (General + Security +
- * Performance), all on the default openrouter/deepseek-v4-flash provider+model.
+ * with a few findings, the three built-in agents (General + Security +
+ * Performance), all on the default openrouter/deepseek-v4-flash provider+model,
+ * and a few demo skills (./seed-skills.ts) with version history, two of them
+ * linked to the Security Reviewer.
  *
- * Course lessons populate the other tables (skills, conventions, memory, eval,
- * …) once their features are built — they start empty here.
+ * Course lessons populate the other tables (conventions, memory, eval, …) once
+ * their features are built — they start empty here.
  */
 
 export const DEFAULT_WORKSPACE_NAME = 'default';
@@ -218,6 +221,51 @@ export async function seed(db: Db): Promise<{ workspaceId: string; userId: strin
       .from(t.agents)
       .where(and(eq(t.agents.workspaceId, workspaceId), eq(t.agents.name, a.name)));
     if (!existing) await db.insert(t.agents).values(a);
+  }
+
+  // ---- demo skills (body history + links to a seeded agent) ----
+  // Created only when missing, so re-seeding never clobbers a user's edits or
+  // re-links a skill they detached.
+  for (const sk of SEED_SKILLS) {
+    const [existing] = await db
+      .select()
+      .from(t.skills)
+      .where(and(eq(t.skills.workspaceId, workspaceId), eq(t.skills.name, sk.name)));
+    if (existing) continue;
+
+    const [skill] = await db
+      .insert(t.skills)
+      .values({
+        workspaceId,
+        name: sk.name,
+        description: sk.description,
+        type: sk.type,
+        source: 'manual',
+        body: sk.bodies[sk.bodies.length - 1]!,
+        enabled: true,
+        version: sk.bodies.length,
+      })
+      .returning();
+    await db
+      .insert(t.skillVersions)
+      .values(sk.bodies.map((body, i) => ({ skillId: skill!.id, version: i + 1, body })));
+
+    if (sk.linkTo) {
+      const [agent] = await db
+        .select()
+        .from(t.agents)
+        .where(and(eq(t.agents.workspaceId, workspaceId), eq(t.agents.name, sk.linkTo)));
+      if (agent) {
+        const linked = await db
+          .select()
+          .from(t.agentSkills)
+          .where(eq(t.agentSkills.agentId, agent.id));
+        await db
+          .insert(t.agentSkills)
+          .values({ agentId: agent.id, skillId: skill!.id, order: linked.length })
+          .onConflictDoNothing();
+      }
+    }
   }
 
   return { workspaceId, userId };
