@@ -187,10 +187,23 @@ export class ReviewRunExecutor {
       // Disabled skills stay linked but are skipped; the block is budgeted
       // (earlier skills win) like the other injected sections.
       const linkedSkills = await this.agents.linkedSkills(agent.id);
+      const enabledSkills = linkedSkills.filter((l) => l.skill.enabled);
       const skills = budgetSkills(
-        linkedSkills.filter((l) => l.skill.enabled).map((l) => l.skill.body),
+        enabledSkills.map((l) => l.skill.body),
         SKILLS_PROMPT_MAX_CHARS,
       );
+      if (linkedSkills.length === 0) {
+        // no log line — same pattern as other builders that add nothing
+      } else if (enabledSkills.length === 0) {
+        runLog.info(`skills: ${linkedSkills.length} linked, all disabled — none attached`);
+      } else {
+        const names = enabledSkills.map((l) => l.skill.name).join(', ');
+        const totalChars = enabledSkills.reduce((s, l) => s + l.skill.body.length, 0);
+        const truncated = totalChars > SKILLS_PROMPT_MAX_CHARS;
+        runLog.info(
+          `skills: ${skills.length} skill(s) attached (${names})${truncated ? ' — truncated to fit prompt budget' : ''}`,
+        );
+      }
 
       // ---- Engine: assemble → single-pass → grounding -----------------------
       // The pure review pipeline lives in @devdigest/reviewer-core (shared with
