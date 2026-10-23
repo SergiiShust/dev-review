@@ -1,16 +1,14 @@
 #!/usr/bin/env bash
 #
 # pre-push.sample — optional native git gate for the TERMINAL path (pushes made
-# outside Claude). Same proof-of-review check as .claude/hooks/pr-self-review-gate.sh,
-# minus the `gh pr create` matching (pre-push gates every push of this branch).
+# outside Claude). Same proof-of-review check as .claude/hooks/pr-self-review-gate.sh
+# (shared recipe in pr-self-review-lib.sh), applied to exactly the commits being
+# pushed rather than to the PR command.
 #
-# Install with: scripts/install-hooks.sh   (symlinks this into .git/hooks/pre-push)
+# Install with: scripts/install-hooks.sh   (symlinks this into the git hooks dir)
 # Bypass once with: git push --no-verify
+# Any failure exits non-zero, which git treats as "reject the push" (fails closed).
 set -euo pipefail
-
-REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || true)"
-[ -n "$REPO_ROOT" ] || exit 0
-VERDICT="$REPO_ROOT/.git/pr-self-review.json"
 
 block() {
   echo "pr-self-review (pre-push): $1" >&2
@@ -18,27 +16,49 @@ block() {
   exit 1
 }
 
+# Git feeds one line per pushed ref on stdin:
+#   <local ref> <local sha> <remote ref> <remote sha>
+# Branch deletions (all-zero local sha) and tags carry no reviewable diff.
+ZERO="0000000000000000000000000000000000000000"
+PUSHED=()
+while read -r LOCAL_REF LOCAL_SHA _REMOTE_REF _REMOTE_SHA; do
+  [ -n "${LOCAL_REF:-}" ] || continue
+  [ "$LOCAL_SHA" = "$ZERO" ] && continue
+  case "$LOCAL_REF" in refs/tags/*) continue ;; esac
+  PUSHED+=("$LOCAL_REF $LOCAL_SHA")
+done
+[ "${#PUSHED[@]}" -gt 0 ] || exit 0   # only tags / deletions → nothing to gate
+
+git rev-parse --show-toplevel >/dev/null 2>&1 || exit 0
+LIB="$(git rev-parse --show-toplevel)/.claude/hooks/pr-self-review-lib.sh"
+[ -f "$LIB" ] || block "missing $LIB."
+# shellcheck source=pr-self-review-lib.sh
+. "$LIB"
+
+DIR="$(prsr_dir)" || block "cannot locate the git dir."
+VERDICT="$DIR/pr-self-review.json"
 [ -f "$VERDICT" ] || block "no self-review on record for this branch."
 
+command -v python3 >/dev/null 2>&1 || block "python3 is required to read $VERDICT."
 read -r VERDICT_VALUE BASE RECORDED_HASH < <(
-  python3 - "$VERDICT" <<'PY' 2>/dev/null || true
+  python3 - "$VERDICT" <<'PY'
 import json, sys
 try:
     d = json.load(open(sys.argv[1]))
 except Exception:
-    print("", "main", ""); sys.exit(0)
-print(d.get("verdict", ""), d.get("base", "main") or "main", d.get("diffHash", ""))
+    d = {}
+print(d.get("verdict") or "-", d.get("base") or "-", d.get("diffHash") or "-")
 PY
 )
 
-[ "${VERDICT_VALUE:-}" = "PASS" ] || block "last self-review verdict was ${VERDICT_VALUE:-missing}."
+[ "$VERDICT_VALUE" = "PASS" ] || block "last self-review verdict was ${VERDICT_VALUE/#-/missing}."
 
-CURRENT_HASH="$(
-  { git -C "$REPO_ROOT" diff --merge-base "$BASE" HEAD; git -C "$REPO_ROOT" diff HEAD; } 2>/dev/null \
-    | shasum -a 256 | awk '{print $1}'
-)"
-
-[ -n "$CURRENT_HASH" ] && [ "$CURRENT_HASH" = "$RECORDED_HASH" ] \
-  || block "changes moved since the last PASS (stale review)."
+for entry in "${PUSHED[@]}"; do
+  ref="${entry% *}"; sha="${entry#* }"
+  hash="$(prsr_diff_hash "$BASE" "$sha")" \
+    || block "cannot compute the diff of $ref against base '$BASE' (missing ref or hashing tool)."
+  [ -n "$hash" ] && [ "$hash" = "$RECORDED_HASH" ] \
+    || block "$ref does not match the last PASS (unreviewed, or changed since the review)."
+done
 
 exit 0

@@ -173,8 +173,10 @@ carries across edits. `author` = `git config user.name`.
 ## Step 5 — Write the proof-of-review file
 
 On a **full-scope** run (not `staged-only` / `fast`), write
-`.git/pr-self-review.json` (inside `.git/`, so it is never committed and is
-per-clone):
+`pr-self-review.json` into the git dir — resolve it with
+`bash .claude/hooks/pr-self-review-lib.sh dir` (it is `.git/` in a normal clone
+and the per-worktree git dir in a linked worktree, where `.git` is a file). It
+is never committed and is per-checkout:
 
 ```json
 {
@@ -185,22 +187,29 @@ per-clone):
   "diffHash": "<see recipe>",
   "reviewedAt": "<ISO-8601>",
   "waivers": [],
-  "reportPath": ".git/pr-self-review.md"
+  "reportPath": "<git dir>/pr-self-review.md"
 }
 ```
 
-**`diffHash` recipe (must match the hook exactly):**
+**`diffHash` — never hand-roll it; use the shared script the gates use:**
 
 ```sh
-{ git diff --merge-base <base> HEAD; git diff HEAD; } | shasum -a 256 | awk '{print $1}'
+bash .claude/hooks/pr-self-review-lib.sh hash <base>
 ```
 
-`diffHash` keys the verdict to the exact reviewed content, so any later edit or
-commit invalidates both the PASS **and** every waiver, forcing a re-run.
+It hashes ONE content-only diff — the working tree vs the merge-base with
+`<base>` (falling back to `origin/<base>` when there is no local branch). A
+non-zero exit means the base can't be resolved or no sha256 tool exists: **do
+not write a PASS** in that case. Record `base` as the plain branch name the PR
+will target (the gate blocks a PR whose `--base` differs from it).
+
+`diffHash` keys the verdict to the exact reviewed **content**, so any later edit
+invalidates both the PASS **and** every waiver, forcing a re-run — while merely
+committing already-reviewed changes keeps it valid.
 
 ## Step 6 — Report, PR seed, and the open decision
 
-- **Markdown report.** Write `.git/pr-self-review.md`: findings grouped by
+- **Markdown report.** Write `pr-self-review.md` (same git dir): findings grouped by
   surface, counts by severity, which skills ran, files not reviewed, and active
   waivers. Human-readable companion to the JSON.
 - **PR-description seed.** On PASS, offer to prefill the `gh pr create` body with
@@ -217,9 +226,11 @@ commit invalidates both the PASS **and** every waiver, forcing a re-run.
 A `PreToolUse` hook on `Bash` runs `.claude/hooks/pr-self-review-gate.sh`
 (wired in `.claude/settings.json`). A shell hook can't *run* a Claude review, so
 it enforces **"a fresh PASS must exist for the current diff"**: when the Bash
-command matches `gh pr create`, it recomputes `diffHash` (same recipe) and checks
-`.git/pr-self-review.json` — **missing / stale (`diffHash` mismatch) / `BLOCK`**
-→ exit 2 (blocks the command); **fresh `PASS`** → allow.
+command opens a PR (`gh pr create`, its `gh pr new` alias, or a `gh api` POST to
+`/pulls`), it recomputes `diffHash` (shared script) and checks the proof file —
+**missing / stale (`diffHash` mismatch) / `BLOCK` / reviewed base ≠ the PR's
+`--base` (or default branch)** → exit 2 (blocks the command); **fresh `PASS`** →
+allow. Any unexpected error inside the gate also exits 2 (fails closed).
 
 Optional terminal-path gate: `scripts/install-hooks.sh` installs a native git
 `pre-push` hook with the same check, for pushes made outside Claude. Opt-in

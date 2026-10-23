@@ -22,11 +22,19 @@ export function CreateSkillModal({ onClose }: { onClose: () => void }) {
   const canSubmit = name.trim().length > 0 && !create.isPending;
   const typeOptions = SKILL_TYPES.map((v) => ({ value: v, label: t(`type.${v}`) }));
 
-  const submit = async () => {
+  // mutate (not mutateAsync): a failed create is surfaced by the global mutation
+  // error toast and leaves the modal open, instead of an unhandled rejection.
+  const submit = () => {
     if (!canSubmit) return;
-    const skill = await create.mutateAsync({ name: name.trim(), description, type });
-    onClose();
-    router.push(`/skills/${skill.id}?tab=config`);
+    create.mutate(
+      { name: name.trim(), description, type },
+      {
+        onSuccess: (skill) => {
+          onClose();
+          router.push(`/skills/${skill.id}?tab=config`);
+        },
+      },
+    );
   };
 
   return (

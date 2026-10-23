@@ -8,6 +8,7 @@ import { seed } from '../src/db/seed.js';
 import * as t from '../src/db/schema.js';
 import { MockGitClient, MockGitHubClient, MockLLMProvider } from '../src/adapters/mocks.js';
 import { SkillsRepository } from '../src/modules/skills/repository/skills.repo.js';
+import { SKILL_BODY_MAX_CHARS } from '@devdigest/shared';
 
 const hasDocker = await dockerAvailable();
 const d = hasDocker ? describe : describe.skip;
@@ -113,14 +114,19 @@ d('skills (Testcontainers pg)', () => {
     const links = (await app.inject({ method: 'GET', url: `/agents/${security!.id}/skills` })).json();
     expect(links.map((l: { name: string }) => l.name)).toEqual(['pr-quality-rubric', 'secret-leakage-gate']);
 
-    // A user edit survives a re-seed, and nothing is duplicated.
+    // A user edit survives a re-seed, a deleted demo skill is NOT resurrected
+    // (or re-linked), and nothing is duplicated.
     await app.inject({ method: 'PUT', url: `/skills/${rubric.id}`, payload: { body: 'edited by user' } });
+    const gate = seeded.find((s) => s.name === 'secret-leakage-gate')!;
+    await app.inject({ method: 'DELETE', url: `/skills/${gate.id}` });
     const countBefore = (await db.select().from(t.skills).where(eq(t.skills.workspaceId, ws!.id))).length;
     await seed(db);
     const countAfter = (await db.select().from(t.skills).where(eq(t.skills.workspaceId, ws!.id))).length;
     expect(countAfter).toBe(countBefore);
     const [after] = await db.select().from(t.skills).where(eq(t.skills.id, rubric.id));
     expect(after).toMatchObject({ body: 'edited by user', version: 3 });
+    const relinked = (await app.inject({ method: 'GET', url: `/agents/${security!.id}/skills` })).json();
+    expect(relinked.map((l: { name: string }) => l.name)).toEqual(['pr-quality-rubric']);
     await app.close();
   });
 
@@ -128,6 +134,51 @@ d('skills (Testcontainers pg)', () => {
     const app = await makeApp();
     const skill = await createSkill(app, { name: 'stub' });
     expect(skill).toMatchObject({ type: 'custom', body: '', version: 1 });
+    await app.close();
+  });
+
+  it('rejects a body over SKILL_BODY_MAX_CHARS on create and update (422)', async () => {
+    const app = await makeApp();
+    const tooLong = 'x'.repeat(SKILL_BODY_MAX_CHARS + 1);
+    expect(
+      (await app.inject({ method: 'POST', url: '/skills', payload: { name: 'big', body: tooLong } }))
+        .statusCode,
+    ).toBe(422);
+    const { id } = await createSkill(app, { name: 'at-limit', body: 'x'.repeat(SKILL_BODY_MAX_CHARS) });
+    expect(
+      (await app.inject({ method: 'PUT', url: `/skills/${id}`, payload: { body: tooLong } })).statusCode,
+    ).toBe(422);
+    await app.close();
+  });
+
+  it('changing an agent\'s linked skills bumps + snapshots its version; a no-op re-post does not', async () => {
+    const app = await makeApp();
+    const a = await createSkill(app, { name: 'ver-a' });
+    const b = await createSkill(app, { name: 'ver-b' });
+    const agentId = (
+      await app.inject({
+        method: 'POST',
+        url: '/agents',
+        payload: { name: 'Versioned Linker', provider: 'openai', model: 'gpt-4o-mini', system_prompt: 'x' },
+      })
+    ).json().id as string;
+    const version = async () =>
+      (await app.inject({ method: 'GET', url: `/agents/${agentId}` })).json().version as number;
+    const post = (payload: object) =>
+      app.inject({ method: 'POST', url: `/agents/${agentId}/skills`, payload });
+
+    expect(await version()).toBe(1);
+    await post({ skill_ids: [a.id, b.id] });
+    expect(await version()).toBe(2);
+    await post({ skill_ids: [a.id, b.id] }); // identical → no bump
+    expect(await version()).toBe(2);
+    await post({ skill_ids: [b.id, a.id] }); // reorder → bump
+    expect(await version()).toBe(3);
+    await post({ skill_id: a.id }); // already linked at its order → no bump
+    expect(await version()).toBe(3);
+
+    const v3 = (await app.inject({ method: 'GET', url: `/agents/${agentId}/versions/3` })).json();
+    expect(v3.config.skills).toEqual([b.id, a.id]);
     await app.close();
   });
 

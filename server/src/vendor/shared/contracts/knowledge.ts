@@ -118,6 +118,12 @@ export type SkillType = z.infer<typeof SkillType>;
 export const SkillSource = z.enum(['manual', 'imported_url', 'extracted', 'community']);
 export type SkillSource = z.infer<typeof SkillSource>;
 
+// Max length of one skill body (chars, ~5k tokens). Skill bodies are injected
+// verbatim into every review prompt (once per file under map-reduce), so they
+// are bounded at write time; the API rejects longer bodies and the editor blocks
+// saving them. The review run also caps the combined skills block.
+export const SKILL_BODY_MAX_CHARS = 20_000;
+
 export const Skill = z.object({
   id: z.string(),
   name: z.string(),

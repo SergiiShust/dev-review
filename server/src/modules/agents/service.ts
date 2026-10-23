@@ -164,8 +164,20 @@ export class AgentsService {
     const agent = await this.repo.getById(workspaceId, agentId);
     if (!agent) return undefined;
     await this.assertSkillsInWorkspace(workspaceId, skillIds);
+    const before = await this.repo.skillIdsForAgent(agentId);
     await this.repo.setSkills(agentId, [...new Set(skillIds)]);
+    await this.bumpIfLinksChanged(workspaceId, agentId, before);
     return this.skillLinks(agentId);
+  }
+
+  /**
+   * Linked skills are part of the assembled prompt, so a change to the ordered
+   * set is a config change: bump + snapshot the agent version (keeps a version
+   * number = one exact prompt for traces and eval replays). No-op re-posts don't bump.
+   */
+  private async bumpIfLinksChanged(workspaceId: string, agentId: string, before: string[]): Promise<void> {
+    const after = await this.repo.skillIdsForAgent(agentId);
+    if (after.join() !== before.join()) await this.repo.bumpVersion(workspaceId, agentId);
   }
 
   /** Link a single skill (append or set order) — additive to existing links. */
@@ -178,9 +190,10 @@ export class AgentsService {
     const agent = await this.repo.getById(workspaceId, agentId);
     if (!agent) return undefined;
     await this.assertSkillsInWorkspace(workspaceId, [skillId]);
-    const existing = await this.repo.linkedSkills(agentId);
-    const resolvedOrder = order ?? existing.length;
+    const before = await this.repo.skillIdsForAgent(agentId);
+    const resolvedOrder = order ?? before.length;
     await this.repo.linkSkill(agentId, skillId, resolvedOrder);
+    await this.bumpIfLinksChanged(workspaceId, agentId, before);
     return this.skillLinks(agentId);
   }
 

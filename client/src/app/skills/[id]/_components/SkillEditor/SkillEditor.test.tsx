@@ -3,6 +3,7 @@ import { describe, it, expect, afterEach, vi } from "vitest";
 import { render, screen, cleanup, fireEvent } from "@testing-library/react";
 import { NextIntlClientProvider } from "next-intl";
 import type { Skill } from "@devdigest/shared";
+import { SKILL_BODY_MAX_CHARS } from "@/lib/skills";
 import messages from "@/../messages/en/skills.json";
 import { ToastProvider } from "@/lib/toast";
 
@@ -40,19 +41,21 @@ const SKILL: Skill = {
   created_at: "2026-03-02T10:00:00Z",
 };
 
-function Harness({ initialTab = "config" }: { initialTab?: string }) {
+function Harness({ initialTab = "config", skill = SKILL }: { initialTab?: string; skill?: Skill }) {
   const [tab, setTab] = React.useState(initialTab);
-  return <SkillEditor skill={SKILL} tab={tab} onTab={setTab} />;
+  return <SkillEditor skill={skill} tab={tab} onTab={setTab} />;
+}
+
+function wrap(ui: React.ReactElement) {
+  return (
+    <NextIntlClientProvider locale="en" messages={{ skills: messages }}>
+      <ToastProvider>{ui}</ToastProvider>
+    </NextIntlClientProvider>
+  );
 }
 
 function renderEditor(tab?: string) {
-  return render(
-    <NextIntlClientProvider locale="en" messages={{ skills: messages }}>
-      <ToastProvider>
-        <Harness initialTab={tab} />
-      </ToastProvider>
-    </NextIntlClientProvider>,
-  );
+  return render(wrap(<Harness initialTab={tab} />));
 }
 
 describe("SkillEditor", () => {
@@ -105,5 +108,27 @@ describe("SkillEditor", () => {
     const diff = screen.getByTestId("skill-diff");
     expect(diff.textContent).toContain("-old rule");
     expect(diff.textContent).toContain("+new rule");
+  });
+
+  it("a server-side enabled change (rail toggle) syncs into the draft without marking it dirty", () => {
+    const { rerender } = render(wrap(<Harness skill={SKILL} />));
+    rerender(wrap(<Harness skill={{ ...SKILL, enabled: false }} />));
+    expect(screen.getByRole("switch")).toHaveAttribute("aria-checked", "false");
+    expect(screen.queryByText("unsaved")).toBeNull();
+  });
+
+  it("keeps the user's unsaved body edit when an unrelated field changes server-side", () => {
+    const { rerender } = render(wrap(<Harness skill={SKILL} />));
+    fireEvent.change(screen.getByDisplayValue(/new rule/), { target: { value: "my edit" } });
+    rerender(wrap(<Harness skill={{ ...SKILL, enabled: false }} />));
+    expect(screen.getByDisplayValue("my edit")).toBeInTheDocument();
+    expect(screen.getByRole("switch")).toHaveAttribute("aria-checked", "false");
+  });
+
+  it("blocks saving a body over the limit", () => {
+    renderEditor();
+    fireEvent.change(screen.getByDisplayValue(/new rule/), { target: { value: "x".repeat(SKILL_BODY_MAX_CHARS + 1) } });
+    expect(screen.getByText(/the limit is/)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /^Save$/ })).toBeDisabled();
   });
 });

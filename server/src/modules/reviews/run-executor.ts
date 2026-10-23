@@ -5,8 +5,8 @@ import { RunLogger } from '../../platform/run-logger.js';
 import * as schema from '../../db/schema.js';
 import type { AgentRow } from '../../db/rows.js';
 import type { ReviewRepository, FindingRow, PullRow, ReviewRow } from './repository.js';
-import { REVIEW_STRATEGY } from './constants.js';
-import { taskLine } from './helpers.js';
+import { REVIEW_STRATEGY, SKILLS_PROMPT_MAX_CHARS } from './constants.js';
+import { budgetSkills, taskLine } from './helpers.js';
 import { loadDiff } from './diff-loader.js';
 
 /** Thrown by a run when the user cancels it mid-flight (between map files). */
@@ -184,9 +184,13 @@ export class ReviewRunExecutor {
       const task = taskLine(pull) + rankNote;
 
       // Linked skills — text-only prompt snippets, injected in link order.
-      // Disabled skills stay linked but are skipped.
+      // Disabled skills stay linked but are skipped; the block is budgeted
+      // (earlier skills win) like the other injected sections.
       const linkedSkills = await this.agents.linkedSkills(agent.id);
-      const skills = linkedSkills.filter((l) => l.skill.enabled).map((l) => l.skill.body);
+      const skills = budgetSkills(
+        linkedSkills.filter((l) => l.skill.enabled).map((l) => l.skill.body),
+        SKILLS_PROMPT_MAX_CHARS,
+      );
 
       // ---- Engine: assemble → single-pass → grounding -----------------------
       // The pure review pipeline lives in @devdigest/reviewer-core (shared with

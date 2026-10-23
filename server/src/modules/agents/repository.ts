@@ -1,4 +1,4 @@
-import { and, asc, desc, eq } from 'drizzle-orm';
+import { and, asc, desc, eq, sql } from 'drizzle-orm';
 import type { Db } from '../../db/client.js';
 import * as t from '../../db/schema.js';
 import type { CiFailOn, Provider, ReviewStrategy } from '@devdigest/shared';
@@ -142,6 +142,22 @@ export class AgentsRepository {
       .returning();
 
     if (configChanged && row) await this.snapshotVersion(row, nextVersion);
+    return row;
+  }
+
+  /**
+   * Bump the agent's version and snapshot it, for changes made OUTSIDE the agents
+   * row that still change what a review runs — linking/unlinking/reordering
+   * skills changes the assembled prompt. Incremented in SQL so concurrent bumps
+   * can't claim the same number.
+   */
+  async bumpVersion(workspaceId: string, id: string): Promise<AgentRow | undefined> {
+    const [row] = await this.db
+      .update(t.agents)
+      .set({ version: sql`${t.agents.version} + 1` })
+      .where(and(eq(t.agents.workspaceId, workspaceId), eq(t.agents.id, id)))
+      .returning();
+    if (row) await this.snapshotVersion(row, row.version);
     return row;
   }
 

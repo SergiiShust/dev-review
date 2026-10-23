@@ -4,7 +4,7 @@ import React from "react";
 import { useTranslations } from "next-intl";
 import { Badge, Button, FormField, Icon, SelectInput, Textarea, TextInput, Toggle } from "@devdigest/ui";
 import type { SkillType } from "@devdigest/shared";
-import { SKILL_TYPES } from "@/lib/skills";
+import { SKILL_BODY_MAX_CHARS, SKILL_TYPES } from "@/lib/skills";
 import { estimateTokens, type SkillDraft } from "../../helpers";
 import { BODY_ROWS } from "./constants";
 import { s } from "./styles";
@@ -27,6 +27,8 @@ export function ConfigTab({
 }) {
   const t = useTranslations("skills");
   const nameMissing = draft.name.trim().length === 0;
+  // Same cap the API enforces — block the save here instead of surfacing a 422.
+  const bodyTooLong = draft.body.length > SKILL_BODY_MAX_CHARS;
   const typeOptions = SKILL_TYPES.map((v) => ({ value: v, label: t(`type.${v}`) }));
 
   return (
@@ -57,7 +59,11 @@ export function ConfigTab({
       <FormField
         label={t("config.body")}
         required
-        hint={t("config.bodyHint")}
+        hint={
+          bodyTooLong
+            ? t("config.bodyTooLong", { count: draft.body.length, max: SKILL_BODY_MAX_CHARS })
+            : t("config.bodyHint")
+        }
         right={
           <span style={s.bodyMeta}>
             <Icon.FileText size={12} />
@@ -76,7 +82,7 @@ export function ConfigTab({
         />
       </FormField>
       <div style={s.actions}>
-        <Button kind="primary" icon="Check" onClick={onSave} disabled={saving || !dirty || nameMissing}>
+        <Button kind="primary" icon="Check" onClick={onSave} disabled={saving || !dirty || nameMissing || bodyTooLong}>
           {saving ? t("config.saving") : t("config.save")}
         </Button>
       </div>

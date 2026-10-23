@@ -47,6 +47,10 @@ export function SkillsTab({ agent }: { agent: Agent }) {
   const linkedIds = (linksQ.data ?? []).map((l) => l.id);
   const rows = buildRows(all, linkedIds).filter((r) => filterSkills([r.skill], filter).length > 0);
   const busy = setSkills.isPending;
+  // Arrows swap with the neighbour in the FULL linked list, so a filter that
+  // hides a linked skill would make a move swap with an invisible row — only
+  // offer reordering on the unfiltered list.
+  const reorderable = filter.trim() === "";
   const apply = (next: string[]) => {
     if (!busy) setSkills.mutate({ agentId: agent.id, skillIds: next });
   };
@@ -81,6 +85,7 @@ export function SkillsTab({ agent }: { agent: Agent }) {
               key={row.skill.id}
               row={row}
               linkedCount={linkedIds.length}
+              reorderable={reorderable}
               busy={busy}
               onToggle={() => apply(toggleSkill(linkedIds, row.skill.id))}
               onMove={(dir) => apply(moveSkill(linkedIds, row.skill.id, dir))}
@@ -95,12 +100,14 @@ export function SkillsTab({ agent }: { agent: Agent }) {
 function SkillLinkRow({
   row,
   linkedCount,
+  reorderable,
   busy,
   onToggle,
   onMove,
 }: {
   row: SkillRowView;
   linkedCount: number;
+  reorderable: boolean;
   busy: boolean;
   onToggle: () => void;
   onMove: (dir: "up" | "down") => void;
@@ -108,8 +115,8 @@ function SkillLinkRow({
   const t = useTranslations("agents");
   const { skill, linked, position } = row;
   const colors = skillTypeColors(skill.type);
-  const canUp = linked && position > 0;
-  const canDown = linked && position < linkedCount - 1;
+  const canUp = reorderable && linked && position > 0;
+  const canDown = reorderable && linked && position < linkedCount - 1;
 
   return (
     <div style={s.row(linked, busy)} data-testid={`skill-row-${skill.name}`}>

@@ -13,6 +13,8 @@ import { PullsService } from './service.js';
  *   GET  /pulls/:id            → full PR detail (diff/files, commits, body)
  *   GET  /pulls/:id/comments   → inline review comments (proxied live to GitHub)
  *   POST /pulls/:id/comments   → create one inline review comment / reply
+ *   POST /repos/:id/poll       → MANUAL refresh: sync the PR list from GitHub and
+ *                                bump last_polled_at. Never triggers a review.
  *
  * Import is idempotent (unique repo_id+number). Review trigger is MANUAL and
  * owned by A2 — this module only imports/reads.
@@ -48,4 +50,11 @@ export default async function pullsRoutes(appBase: FastifyInstance) {
       return service.createComment(workspaceId, req.params.id, req.body);
     },
   );
+
+  // Lived in a separate `polling` module that imported PullsService across
+  // module folders; PR-list sync is pulls' own feature, so the route lives here.
+  app.post('/repos/:id/poll', { schema: { params: IdParams } }, async (req) => {
+    const { workspaceId } = await getContext(app.container, req);
+    return service.syncList(workspaceId, req.params.id);
+  });
 }

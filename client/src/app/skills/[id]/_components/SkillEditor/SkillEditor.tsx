@@ -13,7 +13,7 @@ import { ConfigTab } from "./_components/ConfigTab";
 import { PreviewTab } from "./_components/PreviewTab";
 import { VersionsTab } from "./_components/VersionsTab";
 import { TABS } from "./constants";
-import { draftFromSkill, isDraftDirty, type SkillDraft } from "./helpers";
+import { draftFromSkill, isDraftDirty, rebaseDraft, type SkillDraft } from "./helpers";
 import { s } from "./styles";
 
 export function SkillEditor({ skill, tab, onTab }: { skill: Skill; tab: string; onTab: (t: string) => void }) {
@@ -21,11 +21,22 @@ export function SkillEditor({ skill, tab, onTab }: { skill: Skill; tab: string; 
   const toast = useToast();
   const update = useUpdateSkill();
   const [draft, setDraft] = React.useState<SkillDraft>(() => draftFromSkill(skill));
+  const savedRef = React.useRef<{ id: string; version: number; saved: SkillDraft }>({
+    id: skill.id,
+    version: skill.version,
+    saved: draftFromSkill(skill),
+  });
 
-  // Reset the draft when switching skills or when a new version lands (save/restore).
+  // Keep the draft in step with the saved skill. A different skill or a new
+  // version (body save / restore) resets it; any other server-side change (e.g.
+  // the rail's enabled toggle) is merged into the fields the user hasn't edited.
   React.useEffect(() => {
-    setDraft(draftFromSkill(skill));
-  }, [skill.id, skill.version]); // eslint-disable-line react-hooks/exhaustive-deps
+    const prev = savedRef.current;
+    const next = draftFromSkill(skill);
+    savedRef.current = { id: skill.id, version: skill.version, saved: next };
+    if (prev.id !== skill.id || prev.version !== skill.version) setDraft(next);
+    else setDraft((d) => rebaseDraft(d, prev.saved, next));
+  }, [skill]);
 
   const dirty = isDraftDirty(draft, skill);
   const onChange = (patch: Partial<SkillDraft>) => setDraft((d) => ({ ...d, ...patch }));
@@ -34,8 +45,12 @@ export function SkillEditor({ skill, tab, onTab }: { skill: Skill; tab: string; 
     update.mutate(
       { id: skill.id, patch: { ...draft, name: draft.name.trim() } },
       {
-        // Failures surface via the global mutation error toast.
-        onSuccess: (data) => toast.success(t("config.savedToast", { version: data.version })),
+        // Failures surface via the global mutation error toast. The save sent the
+        // whole draft, so adopt the server's normalised result (e.g. trimmed name).
+        onSuccess: (data) => {
+          setDraft(draftFromSkill(data));
+          toast.success(t("config.savedToast", { version: data.version }));
+        },
       },
     );
 

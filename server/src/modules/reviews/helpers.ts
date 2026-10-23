@@ -74,6 +74,31 @@ export function reviewToDto(
 }
 
 /**
+ * Fit linked skill bodies into a char budget, preserving link order (earlier
+ * skills win). The body that crosses the budget is truncated with a notice and
+ * later ones are dropped with a notice, so the model knows rules were cut rather
+ * than silently missing them.
+ */
+export function budgetSkills(bodies: string[], maxChars: number): string[] {
+  const out: string[] = [];
+  let used = 0;
+  for (let i = 0; i < bodies.length; i++) {
+    const body = bodies[i]!;
+    const room = maxChars - used;
+    if (body.length <= room) {
+      out.push(body);
+      used += body.length;
+      continue;
+    }
+    if (room > 0) out.push(`${body.slice(0, room)}\n[… skill truncated: prompt skills budget reached]`);
+    const dropped = bodies.length - i - (room > 0 ? 1 : 0);
+    if (dropped > 0) out.push(`[${dropped} more linked skill(s) omitted: prompt skills budget reached]`);
+    break;
+  }
+  return out;
+}
+
+/**
  * Build the per-run task instruction line for a PR.
  *
  * The TRUSTED part (ours) states the task and the non-negotiable rule: review

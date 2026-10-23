@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
-import { filterSkills, skillTypeColors } from "./skills";
+import { SKILL_BODY_MAX_CHARS as SHARED_MAX } from "@devdigest/shared";
+import { SKILL_BODY_MAX_CHARS, filterSkills, skillTypeColors } from "./skills";
 
 const rows = [
   { name: "pr-quality-rubric", description: "Overall PR quality", type: "rubric" as const },
@@ -21,5 +22,11 @@ describe("skillTypeColors", () => {
   it("gives security the critical palette and custom a neutral one", () => {
     expect(skillTypeColors("security").color).toBe("var(--crit)");
     expect(skillTypeColors("custom").bg).toBe("var(--bg-hover)");
+  });
+});
+
+describe("SKILL_BODY_MAX_CHARS", () => {
+  it("matches the shared contract value the API enforces", () => {
+    expect(SKILL_BODY_MAX_CHARS).toBe(SHARED_MAX);
   });
 });

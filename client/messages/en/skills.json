@@ -60,7 +60,8 @@
     "save": "Save",
     "saving": "Saving…",
     "savedToast": "Skill saved (v{version})",
-    "nameRequired": "Name is required."
+    "nameRequired": "Name is required.",
+    "bodyTooLong": "Body is {count} characters — the limit is {max}. Shorten it to save."
   },
   "preview": {
     "title": "Preview",

@@ -1,7 +1,7 @@
 import type { FastifyInstance } from 'fastify';
 import type { ZodTypeProvider } from 'fastify-type-provider-zod';
 import { z } from 'zod';
-import { SkillType } from '@devdigest/shared';
+import { SKILL_BODY_MAX_CHARS, SkillType } from '@devdigest/shared';
 import { getContext } from '../_shared/context.js';
 import { IdParams, VersionParams } from '../_shared/schemas.js';
 import { NotFoundError } from '../../platform/errors.js';
@@ -25,7 +25,7 @@ const CreateSkillBody = z.object({
   name: z.string().trim().min(1),
   description: z.string().optional(),
   type: SkillType.optional(),
-  body: z.string().optional(),
+  body: z.string().max(SKILL_BODY_MAX_CHARS).optional(),
   enabled: z.boolean().optional(),
 });
 
@@ -33,7 +33,7 @@ const UpdateSkillBody = z.object({
   name: z.string().trim().min(1).optional(),
   description: z.string().optional(),
   type: SkillType.optional(),
-  body: z.string().optional(),
+  body: z.string().max(SKILL_BODY_MAX_CHARS).optional(),
   enabled: z.boolean().optional(),
 });
 

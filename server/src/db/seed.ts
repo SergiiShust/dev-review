@@ -1,7 +1,7 @@
 import 'dotenv/config';
 import { createDb, type Db } from './client.js';
 import * as t from './schema.js';
-import { eq, and } from 'drizzle-orm';
+import { eq, and, count, max } from 'drizzle-orm';
 import {
   GENERAL_REVIEWER_PROMPT,
   SECURITY_REVIEWER_PROMPT,
@@ -224,15 +224,16 @@ export async function seed(db: Db): Promise<{ workspaceId: string; userId: strin
   }
 
   // ---- demo skills (body history + links to a seeded agent) ----
-  // Created only when missing, so re-seeding never clobbers a user's edits or
-  // re-links a skill they detached.
-  for (const sk of SEED_SKILLS) {
-    const [existing] = await db
-      .select()
-      .from(t.skills)
-      .where(and(eq(t.skills.workspaceId, workspaceId), eq(t.skills.name, sk.name)));
-    if (existing) continue;
-
+  // Seeded only into a workspace that has NO skills yet. dev.sh re-seeds on
+  // every start, so a per-name check would resurrect a demo skill the user
+  // deleted (re-linking it into prompts) or duplicate one they renamed. Once any
+  // skill exists, the user owns the set; only deleting ALL skills brings the
+  // demos back on the next seed.
+  const [skillCount] = await db
+    .select({ n: count() })
+    .from(t.skills)
+    .where(eq(t.skills.workspaceId, workspaceId));
+  for (const sk of (skillCount?.n ?? 0) > 0 ? [] : SEED_SKILLS) {
     const [skill] = await db
       .insert(t.skills)
       .values({
@@ -256,13 +257,14 @@ export async function seed(db: Db): Promise<{ workspaceId: string; userId: strin
         .from(t.agents)
         .where(and(eq(t.agents.workspaceId, workspaceId), eq(t.agents.name, sk.linkTo)));
       if (agent) {
-        const linked = await db
-          .select()
+        // Append after the current last link (max+1, not count: orders can have gaps).
+        const [last] = await db
+          .select({ maxOrder: max(t.agentSkills.order) })
           .from(t.agentSkills)
           .where(eq(t.agentSkills.agentId, agent.id));
         await db
           .insert(t.agentSkills)
-          .values({ agentId: agent.id, skillId: skill!.id, order: linked.length })
+          .values({ agentId: agent.id, skillId: skill!.id, order: (last?.maxOrder ?? -1) + 1 })
           .onConflictDoNothing();
       }
     }

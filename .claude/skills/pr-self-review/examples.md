@@ -32,7 +32,7 @@ hunks. One advisory:
 
 **Verdict: PASS** (0 CRITICAL, 0 WARNING, 1 SUGGESTION).
 
-`.git/pr-self-review.json`:
+`<git dir>/pr-self-review.json` (git dir from `bash .claude/hooks/pr-self-review-lib.sh dir`):
 
 ```json
 {
@@ -43,7 +43,7 @@ hunks. One advisory:
   "diffHash": "9f2c…",
   "reviewedAt": "2026-10-18T10:04:11Z",
   "waivers": [],
-  "reportPath": ".git/pr-self-review.md"
+  "reportPath": "<git dir>/pr-self-review.md"
 }
 ```
 

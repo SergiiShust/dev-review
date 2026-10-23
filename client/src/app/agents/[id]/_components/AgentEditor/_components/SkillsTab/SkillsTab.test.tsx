@@ -106,4 +106,12 @@ describe("Agent SkillsTab", () => {
     renderTab();
     expect(screen.getByText(/No skills in this workspace yet/)).toBeInTheDocument();
   });
+
+  it("hides the reorder arrows while a filter is active (no swaps with hidden rows)", () => {
+    renderTab();
+    fireEvent.change(screen.getByPlaceholderText("Filter skills…"), { target: { value: "gate" } });
+    const row = screen.getByTestId("skill-row-secret-leakage-gate");
+    expect(within(row).queryByLabelText("Move down")).toBeNull();
+    expect(within(row).queryByLabelText("Move up")).toBeNull();
+  });
 });
