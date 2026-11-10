@@ -1,12 +1,13 @@
 import 'dotenv/config';
 import { createDb, type Db } from './client.js';
 import * as t from './schema.js';
-import { eq, and } from 'drizzle-orm';
+import { eq, and, count, max } from 'drizzle-orm';
 import {
   GENERAL_REVIEWER_PROMPT,
   SECURITY_REVIEWER_PROMPT,
   PERFORMANCE_REVIEWER_PROMPT,
 } from './seed-prompts.js';
+import { SEED_SKILLS } from './seed-skills.js';
 
 /** Default provider/model for the built-in reviewer agents. */
 const DEFAULT_PROVIDER = 'openrouter' as const;
@@ -18,11 +19,13 @@ const DEFAULT_MODEL = 'deepseek/deepseek-v4-flash';
  *
  * Seeds: default workspace + system user + membership, default settings,
  * demo repo (acme/payments-api), PR #482 with files/commits, a sample review
- * with a few findings, and the three built-in agents (General + Security +
- * Performance), all on the default openrouter/deepseek-v4-flash provider+model.
+ * with a few findings, the three built-in agents (General + Security +
+ * Performance), all on the default openrouter/deepseek-v4-flash provider+model,
+ * and a few demo skills (./seed-skills.ts) with version history, two of them
+ * linked to the Security Reviewer.
  *
- * Course lessons populate the other tables (skills, conventions, memory, eval,
- * …) once their features are built — they start empty here.
+ * Course lessons populate the other tables (conventions, memory, eval, …) once
+ * their features are built — they start empty here.
  */
 
 export const DEFAULT_WORKSPACE_NAME = 'default';
@@ -219,6 +222,57 @@ export async function seed(db: Db): Promise<{ workspaceId: string; userId: strin
       .where(and(eq(t.agents.workspaceId, workspaceId), eq(t.agents.name, a.name)));
     if (!existing) await db.insert(t.agents).values(a);
   }
+
+  // ---- demo skills (body history + links to a seeded agent) ----
+  // Seeded only into a workspace that has NO skills yet. dev.sh re-seeds on
+  // every start, so a per-name check would resurrect a demo skill the user
+  // deleted (re-linking it into prompts) or duplicate one they renamed. Once any
+  // skill exists, the user owns the set; only deleting ALL skills brings the
+  // demos back on the next seed.
+  // One transaction: the skill-count gate below never re-seeds once any skill
+  // exists, so a seed that crashed half-way would otherwise stay partial forever.
+  await db.transaction(async (tx) => {
+    const [skillCount] = await tx
+      .select({ n: count() })
+      .from(t.skills)
+      .where(eq(t.skills.workspaceId, workspaceId));
+    for (const sk of (skillCount?.n ?? 0) > 0 ? [] : SEED_SKILLS) {
+      const [skill] = await tx
+        .insert(t.skills)
+        .values({
+          workspaceId,
+          name: sk.name,
+          description: sk.description,
+          type: sk.type,
+          source: 'manual',
+          body: sk.bodies[sk.bodies.length - 1]!,
+          enabled: true,
+          version: sk.bodies.length,
+        })
+        .returning();
+      await tx
+        .insert(t.skillVersions)
+        .values(sk.bodies.map((body, i) => ({ skillId: skill!.id, version: i + 1, body })));
+
+      if (sk.linkTo) {
+        const [agent] = await tx
+          .select()
+          .from(t.agents)
+          .where(and(eq(t.agents.workspaceId, workspaceId), eq(t.agents.name, sk.linkTo)));
+        if (agent) {
+          // Append after the current last link (max+1, not count: orders can have gaps).
+          const [last] = await tx
+            .select({ maxOrder: max(t.agentSkills.order) })
+            .from(t.agentSkills)
+            .where(eq(t.agentSkills.agentId, agent.id));
+          await tx
+            .insert(t.agentSkills)
+            .values({ agentId: agent.id, skillId: skill!.id, order: (last?.maxOrder ?? -1) + 1 })
+            .onConflictDoNothing();
+        }
+      }
+    }
+  });
 
   return { workspaceId, userId };
 }

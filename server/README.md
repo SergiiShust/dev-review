@@ -65,14 +65,14 @@ Each module owns its routes (`modules/<name>/routes.ts`). Grouped by domain:
 flowchart TB
   subgraph Repos_PRs["Repos & PRs"]
     repos["repos<br/>/repos"]
-    pulls["pulls<br/>/pulls/:id · /pulls/:id/comments"]
-    polling["polling<br/>/repos/:id/poll"]
+    pulls["pulls<br/>/pulls/:id · /pulls/:id/comments · /repos/:id/poll"]
   end
   subgraph Review["Review & runs"]
     reviews["reviews<br/>/pulls/:id/review · /reviews · /findings/:id/(accept|dismiss)<br/>/runs/:id/(events|trace)"]
   end
   subgraph Agents["Agents"]
-    agents["agents<br/>/agents · /agents/:id"]
+    agents["agents<br/>/agents · /agents/:id · /agents/:id/skills"]
+    skills["skills<br/>/skills · /skills/:id · /skills/:id/versions"]
   end
   subgraph Intel["Repo intelligence"]
     repoIntel["repo-intel<br/>/repos/:id/index-state · /resync"]
