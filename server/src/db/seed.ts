@@ -229,46 +229,50 @@ export async function seed(db: Db): Promise<{ workspaceId: string; userId: strin
   // deleted (re-linking it into prompts) or duplicate one they renamed. Once any
   // skill exists, the user owns the set; only deleting ALL skills brings the
   // demos back on the next seed.
-  const [skillCount] = await db
-    .select({ n: count() })
-    .from(t.skills)
-    .where(eq(t.skills.workspaceId, workspaceId));
-  for (const sk of (skillCount?.n ?? 0) > 0 ? [] : SEED_SKILLS) {
-    const [skill] = await db
-      .insert(t.skills)
-      .values({
-        workspaceId,
-        name: sk.name,
-        description: sk.description,
-        type: sk.type,
-        source: 'manual',
-        body: sk.bodies[sk.bodies.length - 1]!,
-        enabled: true,
-        version: sk.bodies.length,
-      })
-      .returning();
-    await db
-      .insert(t.skillVersions)
-      .values(sk.bodies.map((body, i) => ({ skillId: skill!.id, version: i + 1, body })));
+  // One transaction: the skill-count gate below never re-seeds once any skill
+  // exists, so a seed that crashed half-way would otherwise stay partial forever.
+  await db.transaction(async (tx) => {
+    const [skillCount] = await tx
+      .select({ n: count() })
+      .from(t.skills)
+      .where(eq(t.skills.workspaceId, workspaceId));
+    for (const sk of (skillCount?.n ?? 0) > 0 ? [] : SEED_SKILLS) {
+      const [skill] = await tx
+        .insert(t.skills)
+        .values({
+          workspaceId,
+          name: sk.name,
+          description: sk.description,
+          type: sk.type,
+          source: 'manual',
+          body: sk.bodies[sk.bodies.length - 1]!,
+          enabled: true,
+          version: sk.bodies.length,
+        })
+        .returning();
+      await tx
+        .insert(t.skillVersions)
+        .values(sk.bodies.map((body, i) => ({ skillId: skill!.id, version: i + 1, body })));
 
-    if (sk.linkTo) {
-      const [agent] = await db
-        .select()
-        .from(t.agents)
-        .where(and(eq(t.agents.workspaceId, workspaceId), eq(t.agents.name, sk.linkTo)));
-      if (agent) {
-        // Append after the current last link (max+1, not count: orders can have gaps).
-        const [last] = await db
-          .select({ maxOrder: max(t.agentSkills.order) })
-          .from(t.agentSkills)
-          .where(eq(t.agentSkills.agentId, agent.id));
-        await db
-          .insert(t.agentSkills)
-          .values({ agentId: agent.id, skillId: skill!.id, order: (last?.maxOrder ?? -1) + 1 })
-          .onConflictDoNothing();
+      if (sk.linkTo) {
+        const [agent] = await tx
+          .select()
+          .from(t.agents)
+          .where(and(eq(t.agents.workspaceId, workspaceId), eq(t.agents.name, sk.linkTo)));
+        if (agent) {
+          // Append after the current last link (max+1, not count: orders can have gaps).
+          const [last] = await tx
+            .select({ maxOrder: max(t.agentSkills.order) })
+            .from(t.agentSkills)
+            .where(eq(t.agentSkills.agentId, agent.id));
+          await tx
+            .insert(t.agentSkills)
+            .values({ agentId: agent.id, skillId: skill!.id, order: (last?.maxOrder ?? -1) + 1 })
+            .onConflictDoNothing();
+        }
       }
     }
-  }
+  });
 
   return { workspaceId, userId };
 }

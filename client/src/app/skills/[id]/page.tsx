@@ -57,7 +57,7 @@ export default function SkillEditorPage() {
             <Skeleton height={200} />
           </div>
         ) : (
-          <SkillEditor skill={skill} tab={tab} onTab={setTab} />
+          <SkillEditor key={skill.id} skill={skill} tab={tab} onTab={setTab} />
         )}
       </div>
     </AppShell>

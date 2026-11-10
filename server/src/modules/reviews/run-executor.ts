@@ -6,7 +6,7 @@ import * as schema from '../../db/schema.js';
 import type { AgentRow } from '../../db/rows.js';
 import type { ReviewRepository, FindingRow, PullRow, ReviewRow } from './repository.js';
 import { REVIEW_STRATEGY, SKILLS_PROMPT_MAX_CHARS } from './constants.js';
-import { budgetSkills, taskLine } from './helpers.js';
+import { budgetSkills, skillsBudgetSummary, taskLine } from './helpers.js';
 import { loadDiff } from './diff-loader.js';
 
 /** Thrown by a run when the user cancels it mid-flight (between map files). */
@@ -188,20 +188,22 @@ export class ReviewRunExecutor {
       // (earlier skills win) like the other injected sections.
       const linkedSkills = await this.agents.linkedSkills(agent.id);
       const enabledSkills = linkedSkills.filter((l) => l.skill.enabled);
-      const skills = budgetSkills(
-        enabledSkills.map((l) => l.skill.body),
-        SKILLS_PROMPT_MAX_CHARS,
-      );
+      const enabledBodies = enabledSkills.map((l) => l.skill.body);
+      const skills = budgetSkills(enabledBodies, SKILLS_PROMPT_MAX_CHARS);
       if (linkedSkills.length === 0) {
         // no log line — same pattern as other builders that add nothing
       } else if (enabledSkills.length === 0) {
         runLog.info(`skills: ${linkedSkills.length} linked, all disabled — none attached`);
       } else {
-        const names = enabledSkills.map((l) => l.skill.name).join(', ');
-        const totalChars = enabledSkills.reduce((s, l) => s + l.skill.body.length, 0);
-        const truncated = totalChars > SKILLS_PROMPT_MAX_CHARS;
+        // Name only the skills that reached the prompt (budgetSkills may drop
+        // later ones), and count skills, not the budget notices it appends.
+        const { attached, truncated } = skillsBudgetSummary(enabledBodies, SKILLS_PROMPT_MAX_CHARS);
+        const names = enabledSkills
+          .slice(0, attached)
+          .map((l) => l.skill.name)
+          .join(', ');
         runLog.info(
-          `skills: ${skills.length} skill(s) attached (${names})${truncated ? ' — truncated to fit prompt budget' : ''}`,
+          `skills: ${attached} skill(s) attached (${names})${truncated ? ' — truncated to fit prompt budget' : ''}`,
         );
       }
 

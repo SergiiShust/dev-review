@@ -164,20 +164,28 @@ export class AgentsService {
     const agent = await this.repo.getById(workspaceId, agentId);
     if (!agent) return undefined;
     await this.assertSkillsInWorkspace(workspaceId, skillIds);
-    const before = await this.repo.skillIdsForAgent(agentId);
-    await this.repo.setSkills(agentId, [...new Set(skillIds)]);
-    await this.bumpIfLinksChanged(workspaceId, agentId, before);
+    await this.changeLinks(workspaceId, agentId, (repo) => repo.setSkills(agentId, [...new Set(skillIds)]));
     return this.skillLinks(agentId);
   }
 
   /**
-   * Linked skills are part of the assembled prompt, so a change to the ordered
-   * set is a config change: bump + snapshot the agent version (keeps a version
-   * number = one exact prompt for traces and eval replays). No-op re-posts don't bump.
+   * Apply a link change and, if the ordered skill set actually changed, bump +
+   * snapshot the agent version — in ONE transaction, so links never change
+   * without a version. Linked skills are part of the assembled prompt, so this
+   * keeps a version number = one exact prompt for traces and eval replays.
+   * No-op re-posts don't bump.
    */
-  private async bumpIfLinksChanged(workspaceId: string, agentId: string, before: string[]): Promise<void> {
-    const after = await this.repo.skillIdsForAgent(agentId);
-    if (after.join() !== before.join()) await this.repo.bumpVersion(workspaceId, agentId);
+  private async changeLinks(
+    workspaceId: string,
+    agentId: string,
+    write: (repo: AgentsRepository, before: string[]) => Promise<void>,
+  ): Promise<void> {
+    await this.repo.transaction(async (repo) => {
+      const before = await repo.skillIdsForAgent(agentId);
+      await write(repo, before);
+      const after = await repo.skillIdsForAgent(agentId);
+      if (after.join() !== before.join()) await repo.bumpVersion(workspaceId, agentId);
+    });
   }
 
   /** Link a single skill (append or set order) — additive to existing links. */
@@ -190,10 +198,9 @@ export class AgentsService {
     const agent = await this.repo.getById(workspaceId, agentId);
     if (!agent) return undefined;
     await this.assertSkillsInWorkspace(workspaceId, [skillId]);
-    const before = await this.repo.skillIdsForAgent(agentId);
-    const resolvedOrder = order ?? before.length;
-    await this.repo.linkSkill(agentId, skillId, resolvedOrder);
-    await this.bumpIfLinksChanged(workspaceId, agentId, before);
+    await this.changeLinks(workspaceId, agentId, (repo, before) =>
+      repo.linkSkill(agentId, skillId, order ?? before.length),
+    );
     return this.skillLinks(agentId);
   }
 

@@ -146,6 +146,17 @@ export class AgentsRepository {
   }
 
   /**
+   * Run `fn` against a repository bound to one transaction, so a multi-step
+   * change (e.g. rewrite skill links + bump/snapshot the version) commits or
+   * rolls back as a unit. The cast is safe: every method here only uses the
+   * query builders (select/insert/update/delete) that a Drizzle transaction
+   * shares with the root client.
+   */
+  async transaction<T>(fn: (repo: AgentsRepository) => Promise<T>): Promise<T> {
+    return this.db.transaction((tx) => fn(new AgentsRepository(tx as unknown as Db)));
+  }
+
+  /**
    * Bump the agent's version and snapshot it, for changes made OUTSIDE the agents
    * row that still change what a review runs — linking/unlinking/reordering
    * skills changes the assembled prompt. Incremented in SQL so concurrent bumps

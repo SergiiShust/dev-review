@@ -99,6 +99,27 @@ export function budgetSkills(bodies: string[], maxChars: number): string[] {
 }
 
 /**
+ * How many of `bodies` reach the prompt under `budgetSkills` (whole or
+ * truncated), and whether any were cut. Lets the run log name only the skills
+ * that were actually attached.
+ */
+export function skillsBudgetSummary(
+  bodies: string[],
+  maxChars: number,
+): { attached: number; truncated: boolean } {
+  let used = 0;
+  for (let i = 0; i < bodies.length; i++) {
+    const len = bodies[i]!.length;
+    if (len <= maxChars - used) {
+      used += len;
+      continue;
+    }
+    return { attached: maxChars - used > 0 ? i + 1 : i, truncated: true };
+  }
+  return { attached: bodies.length, truncated: false };
+}
+
+/**
  * Build the per-run task instruction line for a PR.
  *
  * The TRUSTED part (ours) states the task and the non-negotiable rule: review

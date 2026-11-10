@@ -99,6 +99,9 @@ export function useSetAgentSkills() {
       qc.setQueryData(["agent-skills", agentId], data);
       // Per-skill agent counts on the Skills list change with links.
       qc.invalidateQueries({ queryKey: ["skills"] });
+      // A real link change bumps the agent's version server-side.
+      qc.invalidateQueries({ queryKey: ["agent", agentId] });
+      qc.invalidateQueries({ queryKey: ["agents"] });
     },
   });
 }

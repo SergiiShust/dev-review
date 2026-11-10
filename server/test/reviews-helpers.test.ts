@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { budgetSkills, taskLine } from '../src/modules/reviews/helpers.js';
+import { budgetSkills, skillsBudgetSummary, taskLine } from '../src/modules/reviews/helpers.js';
 
 /**
  * Unit coverage for the review task-line. The key invariant: our trusted
@@ -48,5 +48,28 @@ describe('budgetSkills', () => {
     const out = budgetSkills(['x'.repeat(50), 'y'.repeat(5)], 20);
     expect(out[0]!.startsWith('x'.repeat(20))).toBe(true);
     expect(out.join('')).not.toContain('y');
+  });
+});
+
+describe('skillsBudgetSummary', () => {
+  it('counts every body when all fit', () => {
+    expect(skillsBudgetSummary(['aa', 'bb'], 10)).toEqual({ attached: 2, truncated: false });
+    expect(skillsBudgetSummary([], 10)).toEqual({ attached: 0, truncated: false });
+  });
+
+  it('counts the truncated body but not the dropped ones', () => {
+    // budgetSkills keeps aaaa + a truncated bbb…, drops cc and dd.
+    expect(skillsBudgetSummary(['aaaa', 'bbbbbb', 'cc', 'dd'], 7)).toEqual({ attached: 2, truncated: true });
+  });
+
+  it('does not count a body dropped when the budget is exactly used', () => {
+    expect(skillsBudgetSummary(['aaaa', 'bb'], 4)).toEqual({ attached: 1, truncated: true });
+  });
+
+  it('agrees with budgetSkills on how many bodies are emitted', () => {
+    const bodies = ['x'.repeat(20), 'y'.repeat(20), 'z'.repeat(20)];
+    const { attached } = skillsBudgetSummary(bodies, 40);
+    const real = budgetSkills(bodies, 40).filter((b) => !b.startsWith('['));
+    expect(attached).toBe(real.length);
   });
 });

@@ -21,38 +21,37 @@ export function SkillEditor({ skill, tab, onTab }: { skill: Skill; tab: string; 
   const toast = useToast();
   const update = useUpdateSkill();
   const [draft, setDraft] = React.useState<SkillDraft>(() => draftFromSkill(skill));
-  const savedRef = React.useRef<{ id: string; version: number; saved: SkillDraft }>({
-    id: skill.id,
-    version: skill.version,
-    saved: draftFromSkill(skill),
-  });
+  const savedRef = React.useRef<SkillDraft>(draftFromSkill(skill));
 
-  // Keep the draft in step with the saved skill. A different skill or a new
-  // version (body save / restore) resets it; any other server-side change (e.g.
-  // the rail's enabled toggle) is merged into the fields the user hasn't edited.
+  // Keep the draft in step with the saved skill (the page keys this component
+  // by skill id, so a different skill remounts it). Any server-side change — a
+  // save, a restore, the rail's enabled toggle — is merged into the fields the
+  // user hasn't edited; fields with unsaved edits keep the user's value.
   React.useEffect(() => {
     const prev = savedRef.current;
     const next = draftFromSkill(skill);
-    savedRef.current = { id: skill.id, version: skill.version, saved: next };
-    if (prev.id !== skill.id || prev.version !== skill.version) setDraft(next);
-    else setDraft((d) => rebaseDraft(d, prev.saved, next));
+    savedRef.current = next;
+    setDraft((d) => rebaseDraft(d, prev, next));
   }, [skill]);
 
   const dirty = isDraftDirty(draft, skill);
   const onChange = (patch: Partial<SkillDraft>) => setDraft((d) => ({ ...d, ...patch }));
 
-  const save = () =>
+  const save = () => {
+    const sent = draft;
     update.mutate(
-      { id: skill.id, patch: { ...draft, name: draft.name.trim() } },
+      { id: skill.id, patch: { ...sent, name: sent.name.trim() } },
       {
-        // Failures surface via the global mutation error toast. The save sent the
-        // whole draft, so adopt the server's normalised result (e.g. trimmed name).
+        // Failures surface via the global mutation error toast. Adopt the server's
+        // normalised result (e.g. trimmed name) for the fields that were sent, but
+        // keep anything typed while the save was in flight.
         onSuccess: (data) => {
-          setDraft(draftFromSkill(data));
+          setDraft((d) => rebaseDraft(d, sent, draftFromSkill(data)));
           toast.success(t("config.savedToast", { version: data.version }));
         },
       },
     );
+  };
 
   const typeColors = skillTypeColors(skill.type);
   const tabs = TABS.map((tb) => ({ key: tb.key, label: t(tb.labelKey), icon: tb.icon }));
