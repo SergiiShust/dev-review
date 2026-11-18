@@ -161,15 +161,55 @@ export const CommunitySkill = z.object({
 export type CommunitySkill = z.infer<typeof CommunitySkill>;
 
 // ---- Conventions ----
+export const ConventionStatus = z.enum(['pending', 'accepted', 'rejected']);
+export type ConventionStatus = z.infer<typeof ConventionStatus>;
+
+/**
+ * One extracted house-convention candidate. Evidence is code-grounded: the
+ * server keeps a candidate only when `evidence_path` exists in the sampled
+ * files and `evidence_snippet` is the real text at the cited 1-based lines.
+ */
 export const ConventionCandidate = z.object({
   id: z.string(),
+  category: z.string(),
   rule: z.string(),
   evidence_path: z.string(),
+  evidence_line_start: z.number().int().nullable(),
+  evidence_line_end: z.number().int().nullable(),
   evidence_snippet: z.string(),
   confidence: z.number().min(0).max(1),
-  accepted: z.boolean(),
+  status: ConventionStatus,
+  created_at: z.string(),
 });
 export type ConventionCandidate = z.infer<typeof ConventionCandidate>;
+
+/** One extraction run over a repo (backs "Detected from N sample files · last scan …"). */
+export const ConventionScan = z.object({
+  id: z.string(),
+  sample_count: z.number().int(),
+  candidate_count: z.number().int(),
+  dropped_count: z.number().int(),
+  model: z.string(),
+  created_at: z.string(),
+});
+export type ConventionScan = z.infer<typeof ConventionScan>;
+
+export const ConventionsList = z.object({
+  scan: ConventionScan.nullable(),
+  candidates: z.array(ConventionCandidate),
+});
+export type ConventionsList = z.infer<typeof ConventionsList>;
+
+/** Accepted candidates merged into one editable skill (prefills the create modal). */
+export const ConventionSkillDraft = z.object({
+  name: z.string(),
+  description: z.string(),
+  type: SkillType,
+  enabled: z.boolean(),
+  body: z.string(),
+  accepted_count: z.number().int(),
+});
+export type ConventionSkillDraft = z.infer<typeof ConventionSkillDraft>;
 
 // ---- Agents ----
 // 'openrouter' routes through the OpenAI-compatible API (OpenAIProvider with a

@@ -1,7 +1,7 @@
 import { and, asc, count, desc, eq, inArray, sql } from 'drizzle-orm';
 import type { Db } from '../../../db/client.js';
 import * as t from '../../../db/schema.js';
-import type { SkillType } from '@devdigest/shared';
+import type { SkillSource, SkillType } from '@devdigest/shared';
 import type { SkillRow, SkillVersionRow } from '../../../db/rows.js';
 import {
   DEFAULT_SKILL_BODY,
@@ -27,6 +27,10 @@ export interface InsertSkill {
   type?: SkillType;
   body?: string;
   enabled?: boolean;
+  /** Defaults to 'manual'. Extraction flows (conventions) pass 'extracted'. */
+  source?: SkillSource;
+  /** Repo-relative files that back an extracted skill. */
+  evidenceFiles?: string[];
 }
 
 export interface UpdateSkill {
@@ -86,7 +90,7 @@ export class SkillsRepository {
     return rows.length > 0;
   }
 
-  /** Insert a manual skill AND record its v1 body snapshot, atomically. */
+  /** Insert a skill (manual unless `source` says otherwise) AND record its v1 body snapshot, atomically. */
   async insert(values: InsertSkill): Promise<SkillRow> {
     return this.db.transaction(async (tx) => {
       const [row] = await tx
@@ -96,7 +100,8 @@ export class SkillsRepository {
           name: values.name,
           description: values.description ?? DEFAULT_SKILL_DESCRIPTION,
           type: values.type ?? DEFAULT_SKILL_TYPE,
-          source: 'manual',
+          source: values.source ?? 'manual',
+          ...(values.evidenceFiles ? { evidenceFiles: values.evidenceFiles } : {}),
           body: values.body ?? DEFAULT_SKILL_BODY,
           enabled: values.enabled ?? true,
           version: INITIAL_SKILL_VERSION,

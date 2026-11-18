@@ -16,6 +16,3 @@ export const TABS: readonly EditorTab[] = [
 
 export const TAB_KEYS = TABS.map((tb) => tb.key);
 export const DEFAULT_TAB = "config";
-
-/** Rough chars-per-token ratio for the body's token estimate (English prose/markdown). */
-export const CHARS_PER_TOKEN = 4;

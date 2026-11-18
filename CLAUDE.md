@@ -31,7 +31,8 @@ bare `gh pr view 1` resolves to upstream — always pass
 | `e2e/`           | `@devdigest/e2e`           | Browser e2e (agent-browser, no Playwright) | —  |
 
 `@devdigest/shared` — Zod contracts vendored at `server/src/vendor/shared/`
-(symlinked into client). Not a separate package.
+(canonical; `reviewer-core` aliases it too), hand-mirrored to
+`client/src/vendor/shared/` (a real copy, NOT a symlink). Not a separate package.
 
 ## Non-default conventions
 
@@ -59,10 +60,21 @@ bare `gh pr view 1` resolves to upstream — always pass
 - Grounding is mandatory: findings without valid diff line citations are dropped
 - `pnpm db:seed` is idempotent (safe to re-run)
 
+## Shared contracts
+
+- Edit contracts in `server/src/vendor/shared/` — it is the source of truth;
+  new API request/response shapes belong here (adding/changing them is normal).
+- Copy every changed file to `client/src/vendor/shared/` so the pair stays
+  byte-identical (`diff -r server/src/vendor/shared client/src/vendor/shared`).
+  Never edit the client copy on its own.
+- Renaming/removing a field is a breaking change for every consumer
+  (client, server, reviewer-core) — update them in the same change.
+
 ## Do-not-touch
 
-- `server/src/vendor/shared/` and `client/src/vendor/shared/` — shared contracts, edit in one place
-- `client/src/vendor/ui/` — vendored UI primitives
+- `client/src/vendor/shared/` — never edit directly; only mirror the server copy (see above)
+- `client/src/vendor/ui/` — vendored UI primitives. Exception: `nav.ts` is app
+  route config — adding `NAV`/`SHORTCUTS` entries for a new page is expected
 - `server/clones/` — git checkouts of imported repos (git-ignored)
 - `server/src/db/migrations/` — generated migration files, never hand-edit
 - `*/pnpm-lock.yaml` — per-package lockfiles; never hand-edit. Change deps via
