@@ -62,7 +62,8 @@ bare `gh pr view 1` resolves to upstream — always pass
 ## Do-not-touch
 
 - `server/src/vendor/shared/` and `client/src/vendor/shared/` — shared contracts, edit in one place
-- `client/src/vendor/ui/` — vendored UI primitives
+- `client/src/vendor/ui/` — vendored UI primitives. Exception: `nav.ts` is app
+  route config — adding `NAV`/`SHORTCUTS` entries for a new page is expected
 - `server/clones/` — git checkouts of imported repos (git-ignored)
 - `server/src/db/migrations/` — generated migration files, never hand-edit
 - `*/pnpm-lock.yaml` — per-package lockfiles; never hand-edit. Change deps via
