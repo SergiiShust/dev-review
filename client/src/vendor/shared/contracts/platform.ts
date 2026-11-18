@@ -172,7 +172,8 @@ export const PrMeta = z.object({
   score: z.number().int().nullish(),
   // Sum of all run costs for this PR (list endpoint only; null when no cost data).
   cost_usd: z.number().nullish(),
-  // Per-severity finding counts from the latest review (list endpoint only).
+  // Per-severity finding counts summed across each agent's latest review
+  // (list endpoint only).
   findings_counts: z.object({
     CRITICAL: z.number().int(),
     WARNING: z.number().int(),

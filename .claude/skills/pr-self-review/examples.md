@@ -72,14 +72,15 @@ M  server/src/vendor/shared/contracts/findings.ts
 ```
 
 **Routing:** `client/**` → UI skills; `server/src/**` → backend skills;
-`server/src/vendor/shared/**` → flagged (shared contracts, affects both).
+`server/src/vendor/shared/**` → backend skills + shared-contract mirror check
+(the client copy was not updated, so the pair differs).
 
 **Findings:**
 
 | id | sev | where | skill / rule | note |
 |----|-----|-------|--------------|------|
 | onion-route-adapter-1 | **CRITICAL** | pulls/routes.ts:88 | onion-architecture | `container.git.diff(...)` called inside a route — external system past its port |
-| donottouch-shared-1 | **CRITICAL** | contracts/findings.ts:11 | self-check (do-not-touch) | edits `server/src/vendor/shared/` — edit the canonical copy, sync; never hand-edit here |
+| shared-mirror-1 | **CRITICAL** | contracts/findings.ts:11 | self-check (shared mirror) | server contract changed but `client/src/vendor/shared/contracts/findings.ts` still differs — client and server now disagree on the shape |
 | react-key-index-1 | HIGH | AgentCard.tsx:31 | react-best-practices | array index as React key |
 
 **Verdict: BLOCK** (2 CRITICAL). Claude does **not** run `gh pr create`.
@@ -89,8 +90,8 @@ BLOCK — 2 critical finding(s) must be resolved before opening the PR:
 
   1. [onion-route-adapter-1] server/src/modules/pulls/routes.ts:88
      Move the git call behind the service (route → service → port).
-  2. [donottouch-shared-1] server/src/vendor/shared/contracts/findings.ts:11
-     Revert; change the canonical shared contract and re-sync.
+  2. [shared-mirror-1] server/src/vendor/shared/contracts/findings.ts:11
+     cp server/src/vendor/shared/contracts/findings.ts client/src/vendor/shared/contracts/
 
 If you believe one is a false positive:
   /pr-self-review allow onion-route-adapter-1 "<reason>"
