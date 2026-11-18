@@ -11,6 +11,26 @@ import type { Skill, SkillType } from "@devdigest/shared";
  */
 export const SKILL_BODY_MAX_CHARS = 20_000;
 
+/** Rough chars-per-token ratio for a body's token estimate (English prose/markdown). */
+export const CHARS_PER_TOKEN = 4;
+
+/** Rough token estimate for a body (display only — the server never relies on it). */
+export function estimateTokens(text: string): number {
+  return Math.ceil(text.length / CHARS_PER_TOKEN);
+}
+
+/**
+ * The editable fields of a skill — one draft object shared by the Skill Editor
+ * and the "Create skill from conventions" modal.
+ */
+export interface SkillDraft {
+  name: string;
+  description: string;
+  type: SkillType;
+  body: string;
+  enabled: boolean;
+}
+
 /** All skill types, in picker order. Mirrors the `SkillType` contract enum. */
 export const SKILL_TYPES: readonly SkillType[] = ["rubric", "convention", "security", "custom"];
 

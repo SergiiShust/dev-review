@@ -1,14 +1,9 @@
-import type { Skill, SkillType } from "@devdigest/shared";
-import { CHARS_PER_TOKEN } from "./constants";
+import type { Skill } from "@devdigest/shared";
+import type { SkillDraft } from "@/lib/skills";
 
-/** The editable fields of a skill — held as one draft so every tab sees unsaved edits. */
-export interface SkillDraft {
-  name: string;
-  description: string;
-  type: SkillType;
-  body: string;
-  enabled: boolean;
-}
+// SkillDraft + estimateTokens live in @/lib/skills (shared with the conventions
+// create-skill modal); re-exported so editor-internal imports stay unchanged.
+export { estimateTokens, type SkillDraft } from "@/lib/skills";
 
 export function draftFromSkill(skill: Skill): SkillDraft {
   return {
@@ -39,9 +34,4 @@ export function rebaseDraft(draft: SkillDraft, prevSaved: SkillDraft, nextSaved:
 export function isDraftDirty(draft: SkillDraft, skill: Skill): boolean {
   const saved = draftFromSkill(skill);
   return (Object.keys(saved) as (keyof SkillDraft)[]).some((k) => draft[k] !== saved[k]);
-}
-
-/** Rough token estimate for a body (display only — the server never relies on it). */
-export function estimateTokens(text: string): number {
-  return Math.ceil(text.length / CHARS_PER_TOKEN);
 }

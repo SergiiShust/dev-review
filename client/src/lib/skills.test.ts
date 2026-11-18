@@ -30,3 +30,12 @@ describe("SKILL_BODY_MAX_CHARS", () => {
     expect(SKILL_BODY_MAX_CHARS).toBe(SHARED_MAX);
   });
 });
+
+describe("estimateTokens", () => {
+  it("rounds chars / 4 up", async () => {
+    const { estimateTokens, CHARS_PER_TOKEN } = await import("./skills");
+    expect(CHARS_PER_TOKEN).toBe(4);
+    expect(estimateTokens("")).toBe(0);
+    expect(estimateTokens("abcde")).toBe(2);
+  });
+});

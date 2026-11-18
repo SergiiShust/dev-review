@@ -1,4 +1,4 @@
-import { pgTable, uuid, text, jsonb, timestamp, doublePrecision, boolean, vector, index } from 'drizzle-orm/pg-core';
+import { pgTable, uuid, text, jsonb, timestamp, doublePrecision, integer, vector, index } from 'drizzle-orm/pg-core';
 import { now } from './_shared';
 import { workspaces } from './core';
 import { repos } from './repos';
@@ -28,15 +28,48 @@ export const memory = pgTable(
   (t) => ({ wsIdx: index('memory_ws_idx').on(t.workspaceId) }),
 );
 
-export const conventions = pgTable('conventions', {
-  id: uuid('id').primaryKey().defaultRandom(),
-  workspaceId: uuid('workspace_id')
-    .notNull()
-    .references(() => workspaces.id, { onDelete: 'cascade' }),
-  repoId: uuid('repo_id').references(() => repos.id, { onDelete: 'cascade' }),
-  rule: text('rule').notNull(),
-  evidencePath: text('evidence_path'),
-  evidenceSnippet: text('evidence_snippet'),
-  confidence: doublePrecision('confidence'),
-  accepted: boolean('accepted').notNull().default(false),
-});
+/** One extraction run over a repo — observability + "last scan" meta for the UI. */
+export const conventionScans = pgTable(
+  'convention_scans',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: uuid('workspace_id')
+      .notNull()
+      .references(() => workspaces.id, { onDelete: 'cascade' }),
+    repoId: uuid('repo_id')
+      .notNull()
+      .references(() => repos.id, { onDelete: 'cascade' }),
+    sampleCount: integer('sample_count').notNull(),
+    candidateCount: integer('candidate_count').notNull(),
+    droppedCount: integer('dropped_count').notNull(),
+    model: text('model').notNull(),
+    costUsd: doublePrecision('cost_usd'),
+    createdAt: now(),
+  },
+  (t) => ({ repoIdx: index('convention_scans_repo_idx').on(t.repoId, t.createdAt) }),
+);
+
+export const conventions = pgTable(
+  'conventions',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: uuid('workspace_id')
+      .notNull()
+      .references(() => workspaces.id, { onDelete: 'cascade' }),
+    repoId: uuid('repo_id').references(() => repos.id, { onDelete: 'cascade' }),
+    scanId: uuid('scan_id').references(() => conventionScans.id, { onDelete: 'set null' }),
+    category: text('category').notNull().default('general'),
+    rule: text('rule').notNull(),
+    evidencePath: text('evidence_path'),
+    evidenceLineStart: integer('evidence_line_start'),
+    evidenceLineEnd: integer('evidence_line_end'),
+    evidenceSnippet: text('evidence_snippet'),
+    confidence: doublePrecision('confidence'),
+    status: text('status', { enum: ['pending', 'accepted', 'rejected'] })
+      .notNull()
+      .default('pending'),
+    createdAt: now(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => ({ repoStatusIdx: index('conventions_repo_status_idx').on(t.repoId, t.status) }),
+);
