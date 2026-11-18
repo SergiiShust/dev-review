@@ -10,7 +10,6 @@ import type {
 } from '@devdigest/shared';
 import type { Container } from '../../platform/container.js';
 import { AppError, ExternalServiceError, NotFoundError } from '../../platform/errors.js';
-import { resolveFeatureModel } from '../settings/feature-models.js';
 import {
   CONFIG_FILE_CANDIDATES,
   EXTRACTION_MAX_RETRIES,
@@ -30,10 +29,10 @@ import {
   sortCandidates,
   splitLines,
   toConventionDto,
-  toCreatedSkillDto,
   toScanDto,
   type GroundedCandidate,
 } from './helpers.js';
+import { toSkillDto } from '../_shared/skill-dto.js';
 import { buildExtractionMessages, ExtractionResult } from './prompt.js';
 import {
   ConventionsRepository,
@@ -127,7 +126,7 @@ export class ConventionsService {
     }
 
     // 2. Cheap structured LLM call.
-    const { provider, model } = await resolveFeatureModel(this.container, workspaceId, 'conventions');
+    const { provider, model } = await this.container.resolveFeatureModel(workspaceId, 'conventions');
     const llm = await this.container.llm(provider);
     const promptFiles = files.map((f) =>
       renderPromptFile(f.path, f.content, MAX_LINES_PER_FILE, MAX_CHARS_PER_FILE),
@@ -292,6 +291,6 @@ export class ConventionsService {
       source: 'extracted',
       evidenceFiles,
     });
-    return toCreatedSkillDto(row);
+    return toSkillDto(row);
   }
 }

@@ -15,8 +15,8 @@ import type {
   ConventionsList,
   ConventionStatus,
   Skill,
-  SkillType,
 } from "@devdigest/shared";
+import type { SkillDraft } from "../skills";
 
 const listKey = (repoId: string | null | undefined) => ["conventions", repoId] as const;
 const draftKey = (repoId: string | null | undefined) => ["convention-skill-draft", repoId] as const;
@@ -102,18 +102,10 @@ export function useConventionSkillDraft(repoId: string | null | undefined, enabl
   });
 }
 
-export interface CreateConventionSkillInput {
-  name: string;
-  description: string;
-  type: SkillType;
-  enabled: boolean;
-  body: string;
-}
-
 export function useCreateConventionSkill(repoId: string | null | undefined) {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (input: CreateConventionSkillInput) =>
+    mutationFn: (input: SkillDraft) =>
       api.post<Skill>(`/repos/${repoId}/conventions/skill`, input),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["skills"] }),
   });

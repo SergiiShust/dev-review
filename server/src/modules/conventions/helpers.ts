@@ -3,11 +3,8 @@ import {
   type ConventionCandidate,
   type ConventionScan,
   type ConventionSkillDraft,
-  type Skill,
-  type SkillSource,
-  type SkillType,
 } from '@devdigest/shared';
-import type { ConventionRow, ConventionScanRow, SkillRow } from '../../db/rows.js';
+import type { ConventionRow, ConventionScanRow } from '../../db/rows.js';
 import {
   DEFAULT_CATEGORY,
   MAX_EVIDENCE_LINES,
@@ -308,26 +305,6 @@ export function toScanDto(row: ConventionScanRow): ConventionScan {
     candidate_count: row.candidateCount,
     dropped_count: row.droppedCount,
     model: row.model,
-    created_at: row.createdAt.toISOString(),
-  };
-}
-
-/**
- * Map a created skill row to the public `Skill` DTO. Mirrors `toSkillDto` in
- * the skills module (kept local — modules don't import from each other's
- * folders); keep the field mappings in sync.
- */
-export function toCreatedSkillDto(row: SkillRow): Skill {
-  return {
-    id: row.id,
-    name: row.name,
-    description: row.description,
-    type: row.type as SkillType,
-    source: row.source as SkillSource,
-    body: row.body,
-    enabled: row.enabled,
-    version: row.version,
-    evidence_files: row.evidenceFiles ?? null,
     created_at: row.createdAt.toISOString(),
   };
 }
