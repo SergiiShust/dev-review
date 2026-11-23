@@ -59,39 +59,40 @@ describe("FindingsPanel (smoke)", () => {
   });
 });
 
-describe("FindingsPanel severity filter", () => {
-  it("renders three severity filter buttons", () => {
-    renderWithIntl(<FindingsPanel findings={MIXED_FINDINGS} prId="pr1" />);
-    // Three filter buttons (CRITICAL, WARNING, SUGGESTION)
-    const buttons = screen.getAllByRole("button");
-    expect(buttons.length).toBeGreaterThanOrEqual(3);
+const NO_CRITICAL: FindingRecord[] = [
+  { ...base, id: "w1", severity: "WARNING", title: "Warn one" },
+  { ...base, id: "w2", severity: "WARNING", title: "Warn two" },
+  { ...base, id: "s1", severity: "SUGGESTION", title: "Suggest one" },
+];
+
+describe("FindingsPanel severity counters", () => {
+  it("shows a count per severity level, including 0 for empty levels", () => {
+    renderWithIntl(<FindingsPanel findings={NO_CRITICAL} prId="pr1" />);
+    expect(screen.getByRole("button", { name: "0 CRITICAL" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "2 WARNING" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "1 SUGGESTION" })).toBeInTheDocument();
   });
 
-  it("clicking a severity filter shows only findings of that severity", () => {
+  it("clicking a counter shows only findings of that severity", () => {
     renderWithIntl(<FindingsPanel findings={MIXED_FINDINGS} prId="pr1" />);
-    expect(screen.getByText("Hardcoded secret")).toBeInTheDocument();
-    expect(screen.getByText("Missing validation")).toBeInTheDocument();
-    expect(screen.getByText("Use const")).toBeInTheDocument();
+    const critical = screen.getByRole("button", { name: "1 CRITICAL" });
+    fireEvent.click(critical);
 
-    // Click the first filter button (CRITICAL)
-    const buttons = screen.getAllByRole("button");
-    fireEvent.click(buttons[0]!);
-
+    expect(critical).toHaveAttribute("aria-pressed", "true");
     expect(screen.getByText("Hardcoded secret")).toBeInTheDocument();
     expect(screen.queryByText("Missing validation")).not.toBeInTheDocument();
     expect(screen.queryByText("Use const")).not.toBeInTheDocument();
   });
 
-  it("clicking the same filter again clears it (shows all)", () => {
+  it("clicking the active counter again clears the filter", () => {
     renderWithIntl(<FindingsPanel findings={MIXED_FINDINGS} prId="pr1" />);
-    const buttons = screen.getAllByRole("button");
+    const critical = screen.getByRole("button", { name: "1 CRITICAL" });
 
-    // Click CRITICAL to filter
-    fireEvent.click(buttons[0]!);
+    fireEvent.click(critical);
     expect(screen.queryByText("Missing validation")).not.toBeInTheDocument();
 
-    // Click CRITICAL again to clear
-    fireEvent.click(buttons[0]!);
+    fireEvent.click(critical);
+    expect(critical).toHaveAttribute("aria-pressed", "false");
     expect(screen.getByText("Hardcoded secret")).toBeInTheDocument();
     expect(screen.getByText("Missing validation")).toBeInTheDocument();
     expect(screen.getByText("Use const")).toBeInTheDocument();
