@@ -8,6 +8,10 @@ export const SEVERITY_ORDER: Record<string, number> = {
   INFO: 3,
 };
 
+/** Severity levels shown as counters/filters (INFO is not a counted level). */
+export const COUNTED_SEVERITIES = ["CRITICAL", "WARNING", "SUGGESTION"] as const;
+export type CountedSeverity = (typeof COUNTED_SEVERITIES)[number];
+
 /** Confidence below this is hidden when "hide low confidence" is on. */
 export const LOW_CONFIDENCE_THRESHOLD = 0.65;
 
