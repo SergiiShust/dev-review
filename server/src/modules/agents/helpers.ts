@@ -1,6 +1,15 @@
-import type { Agent, AgentVersion, CiFailOn, Provider, ReviewStrategy } from '@devdigest/shared';
+import type {
+  Agent,
+  AgentVersion,
+  CiFailOn,
+  LinkedSkill,
+  Provider,
+  ReviewStrategy,
+  SkillSource,
+  SkillType,
+} from '@devdigest/shared';
 import { AgentVersionConfig } from '@devdigest/shared';
-import type { AgentRow, AgentVersionRow } from './repository.js';
+import type { AgentRow, AgentVersionRow, LinkedSkillRow } from './repository.js';
 
 /**
  * Pure helpers for the agents module — DB row ⇄ DTO mapping and the
@@ -38,6 +47,27 @@ export function toAgentVersionDto(row: AgentVersionRow): AgentVersion {
     version: row.version,
     config: AgentVersionConfig.parse(row.configJson),
     created_at: row.createdAt.toISOString(),
+  };
+}
+
+/**
+ * Map a joined agent_skills × skills row to the public `LinkedSkill` DTO.
+ * Mirrors `toSkillDto` in the skills module (kept local — modules don't import
+ * from each other's folders); keep the two field mappings in sync.
+ */
+export function toLinkedSkillDto({ skill, order }: LinkedSkillRow): LinkedSkill {
+  return {
+    id: skill.id,
+    name: skill.name,
+    description: skill.description,
+    type: skill.type as SkillType,
+    source: skill.source as SkillSource,
+    body: skill.body,
+    enabled: skill.enabled,
+    version: skill.version,
+    evidence_files: skill.evidenceFiles ?? null,
+    created_at: skill.createdAt.toISOString(),
+    order,
   };
 }
 

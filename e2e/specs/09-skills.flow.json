@@ -1,0 +1,33 @@
+{
+  "name": "Skills Lab: list, editor tabs, version diff, and agent skill links",
+  "description": "Read-only walk through the seeded demo skills (server/src/db/seed-skills.ts). Loads /skills and confirms the three seeded skills render; opens pr-quality-rubric and checks the Config tab, the Preview tab (markdown rendered as the agent receives it), and the Versions tab (2 versions, current marker, and a v1→current diff showing a line added in v2). Then opens the Security Reviewer's Skills tab and confirms the two seeded links (2 of 3 enabled). Assumes a freshly-seeded DB where the seeded skills are the only skills — guaranteed by the hermetic runner / e2e-web.yml.",
+  "steps": [
+    { "cmd": ["open", "{BASE}/skills"], "label": "load the skills page" },
+    { "cmd": ["wait", "--url", "/skills"], "label": "skills route reached" },
+    { "cmd": ["wait", "--load", "networkidle"], "label": "skills fetch settles" },
+    { "cmd": ["wait", "--text", "secret-leakage-gate"], "label": "seeded security skill card is visible" },
+    { "cmd": ["wait", "--text", "no-then-chains"], "label": "seeded convention skill card is visible" },
+    { "cmd": ["find", "text", "pr-quality-rubric", "click"], "label": "open the pr-quality-rubric skill" },
+    { "cmd": ["wait", "--url", "tab=config"], "label": "skill editor opens on the Config tab" },
+    { "cmd": ["wait", "--text", "Configuration"], "label": "Config form renders" },
+    { "cmd": ["find", "role", "button", "click", "--name", "Preview"], "label": "switch to the Preview tab" },
+    { "cmd": ["wait", "--url", "tab=preview"], "label": "preview tab is active in the URL" },
+    { "cmd": ["wait", "--text", "Rendered as the reviewing agent receives it."], "label": "preview header renders" },
+    { "cmd": ["wait", "--text", "worth the author's time"], "label": "markdown body is rendered" },
+    { "cmd": ["find", "role", "button", "click", "--name", "Versions"], "label": "switch to the Versions tab" },
+    { "cmd": ["wait", "--url", "tab=versions"], "label": "versions tab is active in the URL" },
+    { "cmd": ["wait", "--text", "2 versions"], "label": "seeded version history (v1 + v2) is listed" },
+    { "cmd": ["wait", "--text", "Current"], "label": "the head version is marked current" },
+    { "cmd": ["find", "role", "button", "click", "--name", "Diff"], "label": "open the v1 diff" },
+    { "cmd": ["wait", "--text", "Changes from v1 to the current body"], "label": "diff panel opens" },
+    { "cmd": ["wait", "--text", "New branches covered by assertions?"], "label": "diff shows a line added in v2" },
+    { "cmd": ["open", "{BASE}/agents"], "label": "go to the agents list" },
+    { "cmd": ["wait", "--load", "networkidle"], "label": "agents fetch settles" },
+    { "cmd": ["find", "text", "Security Reviewer", "click"], "label": "open the Security Reviewer" },
+    { "cmd": ["wait", "--url", "tab=config"], "label": "agent editor opens on Config" },
+    { "cmd": ["find", "role", "button", "click", "--name", "Skills"], "label": "switch to the agent's Skills tab" },
+    { "cmd": ["wait", "--url", "tab=skills"], "label": "skills tab is active in the URL" },
+    { "cmd": ["wait", "--text", "2 of 3 enabled"], "label": "two seeded skills are linked out of three" },
+    { "cmd": ["wait", "--text", "Order matters"], "label": "prompt-order hint renders" }
+  ]
+}

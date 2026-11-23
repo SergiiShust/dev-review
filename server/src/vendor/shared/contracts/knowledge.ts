@@ -118,6 +118,12 @@ export type SkillType = z.infer<typeof SkillType>;
 export const SkillSource = z.enum(['manual', 'imported_url', 'extracted', 'community']);
 export type SkillSource = z.infer<typeof SkillSource>;
 
+// Max length of one skill body (chars, ~5k tokens). Skill bodies are injected
+// verbatim into every review prompt (once per file under map-reduce), so they
+// are bounded at write time; the API rejects longer bodies and the editor blocks
+// saving them. The review run also caps the combined skills block.
+export const SKILL_BODY_MAX_CHARS = 20_000;
+
 export const Skill = z.object({
   id: z.string(),
   name: z.string(),
@@ -128,8 +134,22 @@ export const Skill = z.object({
   enabled: z.boolean(),
   version: z.number().int(),
   evidence_files: z.array(z.string()).nullish(),
+  created_at: z.string(),
+  // How many agents link this skill — populated by the list endpoint only.
+  agent_count: z.number().int().optional(),
 });
 export type Skill = z.infer<typeof Skill>;
+
+// Immutable body snapshot captured in `skill_versions` on create and on every
+// body change (metadata edits don't snapshot). Restoring an old version writes
+// a NEW head version with that body — history is never rewritten.
+export const SkillVersion = z.object({
+  skill_id: z.string(),
+  version: z.number().int(),
+  body: z.string(),
+  created_at: z.string(),
+});
+export type SkillVersion = z.infer<typeof SkillVersion>;
 
 export const CommunitySkill = z.object({
   name: z.string(),
@@ -141,15 +161,55 @@ export const CommunitySkill = z.object({
 export type CommunitySkill = z.infer<typeof CommunitySkill>;
 
 // ---- Conventions ----
+export const ConventionStatus = z.enum(['pending', 'accepted', 'rejected']);
+export type ConventionStatus = z.infer<typeof ConventionStatus>;
+
+/**
+ * One extracted house-convention candidate. Evidence is code-grounded: the
+ * server keeps a candidate only when `evidence_path` exists in the sampled
+ * files and `evidence_snippet` is the real text at the cited 1-based lines.
+ */
 export const ConventionCandidate = z.object({
   id: z.string(),
+  category: z.string(),
   rule: z.string(),
   evidence_path: z.string(),
+  evidence_line_start: z.number().int().nullable(),
+  evidence_line_end: z.number().int().nullable(),
   evidence_snippet: z.string(),
   confidence: z.number().min(0).max(1),
-  accepted: z.boolean(),
+  status: ConventionStatus,
+  created_at: z.string(),
 });
 export type ConventionCandidate = z.infer<typeof ConventionCandidate>;
+
+/** One extraction run over a repo (backs "Detected from N sample files · last scan …"). */
+export const ConventionScan = z.object({
+  id: z.string(),
+  sample_count: z.number().int(),
+  candidate_count: z.number().int(),
+  dropped_count: z.number().int(),
+  model: z.string(),
+  created_at: z.string(),
+});
+export type ConventionScan = z.infer<typeof ConventionScan>;
+
+export const ConventionsList = z.object({
+  scan: ConventionScan.nullable(),
+  candidates: z.array(ConventionCandidate),
+});
+export type ConventionsList = z.infer<typeof ConventionsList>;
+
+/** Accepted candidates merged into one editable skill (prefills the create modal). */
+export const ConventionSkillDraft = z.object({
+  name: z.string(),
+  description: z.string(),
+  type: SkillType,
+  enabled: z.boolean(),
+  body: z.string(),
+  accepted_count: z.number().int(),
+});
+export type ConventionSkillDraft = z.infer<typeof ConventionSkillDraft>;
 
 // ---- Agents ----
 // 'openrouter' routes through the OpenAI-compatible API (OpenAIProvider with a
@@ -197,6 +257,11 @@ export const AgentSkillLink = z.object({
   order: z.number().int(),
 });
 export type AgentSkillLink = z.infer<typeof AgentSkillLink>;
+
+// A skill as linked to an agent: the full skill plus its position in the
+// agent's ordered skill list (earlier = earlier in the assembled prompt).
+export const LinkedSkill = Skill.extend({ order: z.number().int() });
+export type LinkedSkill = z.infer<typeof LinkedSkill>;
 
 // The immutable config snapshot captured in `agent_versions` whenever an agent's
 // config changes (everything but `enabled`). Mirrors the shape written by the

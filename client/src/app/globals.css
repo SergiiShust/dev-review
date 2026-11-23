@@ -12,6 +12,43 @@
   src: local("Inter");
 }
 
+/* Skill Preview — document-style markdown (headings + lists). The shared
+   <Markdown> primitive only styles inline elements, and the Tailwind preflight
+   strips heading sizes and list bullets, so the preview restores them here.
+   Descendant selectors can't be expressed in a styles.ts CSSProperties object. */
+.dd-skill-preview h1 {
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 0 0 12px;
+}
+.dd-skill-preview h2 {
+  font-size: 16px;
+  font-weight: 650;
+  color: var(--text-primary);
+  margin: 18px 0 8px;
+}
+.dd-skill-preview h3 {
+  font-size: 14px;
+  font-weight: 650;
+  color: var(--text-primary);
+  margin: 14px 0 6px;
+}
+.dd-skill-preview ul,
+.dd-skill-preview ol {
+  margin: 0 0 10px;
+  padding-left: 22px;
+}
+.dd-skill-preview ul {
+  list-style: disc;
+}
+.dd-skill-preview ol {
+  list-style: decimal;
+}
+.dd-skill-preview li {
+  margin: 3px 0;
+}
+
 @keyframes ddToastIn {
   from {
     opacity: 0;

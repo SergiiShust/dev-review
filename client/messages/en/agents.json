@@ -90,8 +90,15 @@
   "skills": {
     "title": "Skills",
     "enabledCount": "{linked} of {total} enabled",
+    "empty": "No skills in this workspace yet. Create one in Skills Lab → Skills.",
+    "noMatch": "No skills match this filter.",
+    "loadError": "Could not load skills.",
+    "moveUp": "Move up",
+    "moveDown": "Move down",
+    "disabledBadge": "disabled",
+    "disabledHint": "Skill is disabled globally — it stays linked but is skipped in reviews.",
     "filterPlaceholder": "Filter skills…",
-    "orderHint": "Order matters — earlier skills appear earlier in the assembled prompt. Toggle to attach."
+    "orderHint": "Order matters — earlier skills appear earlier in the assembled prompt. Check to attach; use the arrows to reorder."
   },
   "mount": {
     "body": "Mount point for {owner}. The Agent Editor shell + tab routing are wired by A2 — {owner} renders this tab."

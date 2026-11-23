@@ -5,22 +5,61 @@
     "headingPrefix": "Conventions in ",
     "repoFallback": "repo",
     "subtitle": "Scan the cloned repo to surface house-rules — each backed by evidence you can turn into a Skill.",
+    "scanMeta": "Detected from {count, plural, one {# sample file} other {# sample files}} · last scan {ago}",
+    "droppedMeta": "{count, plural, one {# candidate} other {# candidates}} dropped without evidence",
     "scanning": "Scanning…",
     "rescan": "Re-scan",
     "runExtraction": "Run extraction",
     "extractionFailed": "Extraction failed",
+    "notIndexed": "This repo isn't indexed yet. Run indexing first, then extract conventions.",
+    "notCloned": "This repo has no local clone yet. Re-import it first.",
     "loadError": "Could not load conventions.",
     "empty": {
       "title": "No conventions extracted yet",
       "body": "Scan the repo to surface house-rules — naming, error handling, structure — each backed by evidence you can turn into a Skill.",
       "cta": "Run extraction"
     },
-    "candidateCount": "{count, plural, one {# candidate} other {# candidates}} · grounded against sampled files"
+    "candidateCount": "{count, plural, one {# candidate} other {# candidates}} · grounded against sampled files",
+    "deselectAll": "Deselect all",
+    "acceptedCount": "{accepted} of {total} accepted",
+    "createSkill": "Create skill"
   },
   "card": {
     "confidence": "Confidence",
+    "accept": "Accept",
     "accepted": "Accepted",
     "accepting": "Accepting…",
-    "acceptAsSkill": "Accept as Skill"
+    "acceptAsSkill": "Accept as Skill",
+    "reject": "Reject",
+    "rejected": "Rejected",
+    "edit": "Edit",
+    "save": "Save",
+    "cancel": "Cancel",
+    "rule": "Rule",
+    "category": "Category",
+    "copy": "Copy path",
+    "copied": "Copied"
+  },
+  "modal": {
+    "title": "Create skill from conventions",
+    "banner": "Merged from <b>{count, plural, one {# accepted convention} other {# accepted conventions}}</b> in <code>{repo}</code>. Everything below is editable before you save.",
+    "name": "Name",
+    "nameRequired": "Name is required",
+    "description": "Description",
+    "type": "Type",
+    "enabled": "Enabled",
+    "enabledHint": "Whether this block is added to agents' prompts.",
+    "body": "Skill body",
+    "bodyRequired": "Body is required",
+    "bodyTooLong": "Body is {count} characters — the limit is {max}.",
+    "unsaved": "unsaved",
+    "tokens": "{count} tokens",
+    "footerNote": "Saved as v1 · added to Skills Lab",
+    "cancel": "Cancel",
+    "create": "Create skill",
+    "creating": "Creating…",
+    "loading": "Merging accepted conventions…",
+    "loadError": "Could not build the skill draft.",
+    "created": "Skill \"{name}\" created — link it to an agent from the Agents page."
   }
 }

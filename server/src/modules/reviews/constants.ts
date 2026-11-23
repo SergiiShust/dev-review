@@ -10,3 +10,11 @@
  * model's context.
  */
 export const REVIEW_STRATEGY = 'single-pass' as const;
+
+/**
+ * Budget (chars, ~10k tokens) for the combined linked-skills block in one review
+ * prompt. Each body is already capped at SKILL_BODY_MAX_CHARS on write, but an
+ * agent can link many skills, and map-reduce repeats the block per file — so the
+ * total is bounded like the PR description / callers / repo map sections.
+ */
+export const SKILLS_PROMPT_MAX_CHARS = 40_000;

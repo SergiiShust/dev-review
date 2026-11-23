@@ -1,4 +1,4 @@
-import { and, asc, desc, eq } from 'drizzle-orm';
+import { and, asc, desc, eq, sql } from 'drizzle-orm';
 import type { Db } from '../../db/client.js';
 import * as t from '../../db/schema.js';
 import type { CiFailOn, Provider, ReviewStrategy } from '@devdigest/shared';
@@ -142,6 +142,33 @@ export class AgentsRepository {
       .returning();
 
     if (configChanged && row) await this.snapshotVersion(row, nextVersion);
+    return row;
+  }
+
+  /**
+   * Run `fn` against a repository bound to one transaction, so a multi-step
+   * change (e.g. rewrite skill links + bump/snapshot the version) commits or
+   * rolls back as a unit. The cast is safe: every method here only uses the
+   * query builders (select/insert/update/delete) that a Drizzle transaction
+   * shares with the root client.
+   */
+  async transaction<T>(fn: (repo: AgentsRepository) => Promise<T>): Promise<T> {
+    return this.db.transaction((tx) => fn(new AgentsRepository(tx as unknown as Db)));
+  }
+
+  /**
+   * Bump the agent's version and snapshot it, for changes made OUTSIDE the agents
+   * row that still change what a review runs — linking/unlinking/reordering
+   * skills changes the assembled prompt. Incremented in SQL so concurrent bumps
+   * can't claim the same number.
+   */
+  async bumpVersion(workspaceId: string, id: string): Promise<AgentRow | undefined> {
+    const [row] = await this.db
+      .update(t.agents)
+      .set({ version: sql`${t.agents.version} + 1` })
+      .where(and(eq(t.agents.workspaceId, workspaceId), eq(t.agents.id, id)))
+      .returning();
+    if (row) await this.snapshotVersion(row, row.version);
     return row;
   }
 

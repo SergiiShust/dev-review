@@ -10,3 +10,10 @@ import { z } from 'zod';
  */
 export const IdParams = z.object({ id: z.string().uuid() });
 export type IdParams = z.infer<typeof IdParams>;
+
+/** `/<entity>/:id/versions/:version` — id is a uuid, version a positive integer. */
+export const VersionParams = z.object({
+  id: z.string().uuid(),
+  version: z.coerce.number().int().positive(),
+});
+export type VersionParams = z.infer<typeof VersionParams>;

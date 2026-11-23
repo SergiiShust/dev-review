@@ -5,8 +5,8 @@ import { RunLogger } from '../../platform/run-logger.js';
 import * as schema from '../../db/schema.js';
 import type { AgentRow } from '../../db/rows.js';
 import type { ReviewRepository, FindingRow, PullRow, ReviewRow } from './repository.js';
-import { REVIEW_STRATEGY } from './constants.js';
-import { taskLine } from './helpers.js';
+import { REVIEW_STRATEGY, SKILLS_PROMPT_MAX_CHARS } from './constants.js';
+import { budgetSkills, skillsBudgetSummary, taskLine } from './helpers.js';
 import { loadDiff } from './diff-loader.js';
 
 /** Thrown by a run when the user cancels it mid-flight (between map files). */
@@ -183,6 +183,30 @@ export class ReviewRunExecutor {
 
       const task = taskLine(pull) + rankNote;
 
+      // Linked skills — text-only prompt snippets, injected in link order.
+      // Disabled skills stay linked but are skipped; the block is budgeted
+      // (earlier skills win) like the other injected sections.
+      const linkedSkills = await this.agents.linkedSkills(agent.id);
+      const enabledSkills = linkedSkills.filter((l) => l.skill.enabled);
+      const enabledBodies = enabledSkills.map((l) => l.skill.body);
+      const skills = budgetSkills(enabledBodies, SKILLS_PROMPT_MAX_CHARS);
+      if (linkedSkills.length === 0) {
+        // no log line — same pattern as other builders that add nothing
+      } else if (enabledSkills.length === 0) {
+        runLog.info(`skills: ${linkedSkills.length} linked, all disabled — none attached`);
+      } else {
+        // Name only the skills that reached the prompt (budgetSkills may drop
+        // later ones), and count skills, not the budget notices it appends.
+        const { attached, truncated } = skillsBudgetSummary(enabledBodies, SKILLS_PROMPT_MAX_CHARS);
+        const names = enabledSkills
+          .slice(0, attached)
+          .map((l) => l.skill.name)
+          .join(', ');
+        runLog.info(
+          `skills: ${attached} skill(s) attached (${names})${truncated ? ' — truncated to fit prompt budget' : ''}`,
+        );
+      }
+
       // ---- Engine: assemble → single-pass → grounding -----------------------
       // The pure review pipeline lives in @devdigest/reviewer-core (shared with
       // the CI runner). The service owns only I/O: repo-intel context resolution
@@ -200,6 +224,8 @@ export class ReviewRunExecutor {
         ...(callersDigest ? { callers: callersDigest } : {}),
         // T3 — repo skeleton, same omit-when-empty contract.
         ...(repoMap ? { repoMap } : {}),
+        // Skill bodies → "## Skills / rules" section; omitted when none are linked.
+        ...(skills.length ? { skills } : {}),
         // PR author's description/body — untrusted; assemblePrompt wraps +
         // truncates it. Omitted when the PR has no body.
         ...(pull.body ? { prDescription: pull.body } : {}),

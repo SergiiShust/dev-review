@@ -1,15 +1,16 @@
 import type { Container } from '../../platform/container.js';
 import type {
   Agent,
-  AgentSkillLink,
   AgentVersion,
   CiFailOn,
+  LinkedSkill,
   ModelInfo,
   Provider,
   ReviewStrategy,
 } from '@devdigest/shared';
 import { AgentsRepository } from './repository.js';
-import { toAgentDto, toAgentVersionDto } from './helpers.js';
+import { toAgentDto, toAgentVersionDto, toLinkedSkillDto } from './helpers.js';
+import { NotFoundError } from '../../platform/errors.js';
 
 /**
  * A2 — agents service. Business logic for the Agents tab + Agent Editor.
@@ -135,10 +136,20 @@ export class AgentsService {
     return row ? toAgentVersionDto(row) : undefined;
   }
 
-  /** Linked skills for an agent as AgentSkillLink[] (ordered). */
-  async skillLinks(agentId: string): Promise<AgentSkillLink[]> {
+  /** Linked skills for an agent — full skill + its order, ordered ascending. */
+  async skillLinks(agentId: string): Promise<LinkedSkill[]> {
     const links = await this.repo.linkedSkills(agentId);
-    return links.map((l) => ({ agent_id: agentId, skill_id: l.skill.id, order: l.order }));
+    return links.map(toLinkedSkillDto);
+  }
+
+  /**
+   * Reject skill ids outside the workspace. 404 (not 400) so a caller can't
+   * probe whether another tenant's skill id exists.
+   */
+  private async assertSkillsInWorkspace(workspaceId: string, skillIds: string[]): Promise<void> {
+    if (!(await this.container.skillsRepo.allInWorkspace(workspaceId, skillIds))) {
+      throw new NotFoundError('Skill not found');
+    }
   }
 
   /**
@@ -149,11 +160,32 @@ export class AgentsService {
     workspaceId: string,
     agentId: string,
     skillIds: string[],
-  ): Promise<AgentSkillLink[] | undefined> {
+  ): Promise<LinkedSkill[] | undefined> {
     const agent = await this.repo.getById(workspaceId, agentId);
     if (!agent) return undefined;
-    await this.repo.setSkills(agentId, skillIds);
+    await this.assertSkillsInWorkspace(workspaceId, skillIds);
+    await this.changeLinks(workspaceId, agentId, (repo) => repo.setSkills(agentId, [...new Set(skillIds)]));
     return this.skillLinks(agentId);
+  }
+
+  /**
+   * Apply a link change and, if the ordered skill set actually changed, bump +
+   * snapshot the agent version — in ONE transaction, so links never change
+   * without a version. Linked skills are part of the assembled prompt, so this
+   * keeps a version number = one exact prompt for traces and eval replays.
+   * No-op re-posts don't bump.
+   */
+  private async changeLinks(
+    workspaceId: string,
+    agentId: string,
+    write: (repo: AgentsRepository, before: string[]) => Promise<void>,
+  ): Promise<void> {
+    await this.repo.transaction(async (repo) => {
+      const before = await repo.skillIdsForAgent(agentId);
+      await write(repo, before);
+      const after = await repo.skillIdsForAgent(agentId);
+      if (after.join() !== before.join()) await repo.bumpVersion(workspaceId, agentId);
+    });
   }
 
   /** Link a single skill (append or set order) — additive to existing links. */
@@ -162,12 +194,13 @@ export class AgentsService {
     agentId: string,
     skillId: string,
     order?: number,
-  ): Promise<AgentSkillLink[] | undefined> {
+  ): Promise<LinkedSkill[] | undefined> {
     const agent = await this.repo.getById(workspaceId, agentId);
     if (!agent) return undefined;
-    const existing = await this.repo.linkedSkills(agentId);
-    const resolvedOrder = order ?? existing.length;
-    await this.repo.linkSkill(agentId, skillId, resolvedOrder);
+    await this.assertSkillsInWorkspace(workspaceId, [skillId]);
+    await this.changeLinks(workspaceId, agentId, (repo, before) =>
+      repo.linkSkill(agentId, skillId, order ?? before.length),
+    );
     return this.skillLinks(agentId);
   }
 
